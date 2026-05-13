@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-12T20:44:06.275564",
+  "environment": "dev",
+  "backup_name": "backup_20260512_204406",
+  "items": [
+    "apps",
+    "config",
+    "manage.py",
+    "requirements.txt"
+  ]
+}
