@@ -1,14 +1,16 @@
 # import os
 import json
 from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
 from apps.llm import LLMServiceFactory
 from apps.ai_agents.test_case_generator.generator import TestCaseGeneratorAgent
 from apps.core.models import TestCase
 from apps.utils.logger_manager import get_logger
-from django.views.decorators.http import require_http_methods
-from django.shortcuts import render
 from apps.knowledge.service import get_knowledgeService_instance
 from apps.llm.utils import get_agent_llm_configs
+from apps.utils.file_parser import extract_text_from_uploaded_file, SUPPORTED_FILE_TYPES
 
 
 
@@ -160,4 +162,80 @@ def save_test_case(request):
         return JsonResponse({
             'success': False,
             'message': f'保存失败：{str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def upload_file(request):
+    """
+    上传并解析文件
+    支持 .docx、.md、.txt 格式的需求文档
+    """
+    try:
+        # 检查是否有文件上传
+        if 'file' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'message': '请选择要上传的文件'
+            }, status=400)
+        
+        uploaded_file = request.FILES['file']
+        
+        # 验证文件名
+        filename = uploaded_file.name
+        if not filename or '.' not in filename:
+            return JsonResponse({
+                'success': False,
+                'message': '无效的文件名'
+            }, status=400)
+        
+        # 验证文件类型
+        ext = '.' + filename.rsplit('.', 1)[1].lower()
+        if ext not in SUPPORTED_FILE_TYPES:
+            return JsonResponse({
+                'success': False,
+                'message': f'不支持的文件类型: {ext}。支持的类型: {", ".join(SUPPORTED_FILE_TYPES.values())}'
+            }, status=400)
+        
+        # 验证文件大小（最大10MB）
+        max_size = 10 * 1024 * 1024  # 10MB
+        if uploaded_file.size > max_size:
+            return JsonResponse({
+                'success': False,
+                'message': f'文件大小超过限制（最大10MB），当前文件大小: {uploaded_file.size / (1024 * 1024):.2f} MB'
+            }, status=400)
+        
+        logger.info(f"开始解析文件: {filename}, 大小: {uploaded_file.size} 字节")
+        
+        # 解析文件内容
+        content, filename, file_type = extract_text_from_uploaded_file(uploaded_file)
+        
+        # 验证解析结果
+        if not content or len(content.strip()) == 0:
+            return JsonResponse({
+                'success': False,
+                'message': '文件内容为空或无法解析'
+            }, status=400)
+        
+        logger.info(f"文件解析成功: {filename}, 提取内容长度: {len(content)} 字符")
+        
+        return JsonResponse({
+            'success': True,
+            'content': content,
+            'filename': filename,
+            'file_type': file_type,
+            'content_length': len(content)
+        })
+        
+    except ValueError as e:
+        logger.error(f"文件上传验证失败: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=400)
+    except Exception as e:
+        logger.error(f"文件上传和解析失败: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'message': f'文件解析失败：{str(e)}'
         }, status=500)

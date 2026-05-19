@@ -51,7 +51,7 @@ class JavaCodeAnalyzerAgent:
         
         # 从 repo_path 推导出 project_id
         self.project_id = self._extract_project_id(repo_path)
-        print("_extract_project_id函数推到出的project_id是:", self.project_id)
+        logger.info(f"_extract_project_id函数推导出的project_id是: {self.project_id}")
         
         # 初始化提示词管理器
         self.prompt_manager = JavaCodeAnalyzerPromptManager()
@@ -178,7 +178,7 @@ class JavaCodeAnalyzerAgent:
             """节点：触发项目索引构建（index_project）。"""
             t0 = _log_node_start("index", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] index_project")
+                logger.info("[LangGraph] index_project")
             out = _invoke_tool(index_project, {"project_id": self.project_id}, label="index_project")
             _log_node_end("index", t0)
             return {**state, "index_result": out}
@@ -187,7 +187,7 @@ class JavaCodeAnalyzerAgent:
             """节点：轮询索索引状态直到 READY 或超时。"""
             t0 = _log_node_start("wait_ready", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] wait_index_ready")
+                logger.info("[LangGraph] wait_index_ready")
 
             max_attempts = 30
             last = None
@@ -203,7 +203,7 @@ class JavaCodeAnalyzerAgent:
                 if isinstance(parsed, dict):
                     status = parsed.get("status") or parsed.get("state")
                 if self.verbose:
-                    print(f"   attempt={i+1}/{max_attempts}, status={status}")
+                    logger.info(f"  attempt={i+1}/{max_attempts}, status={status}")
                 if status == "READY":
                     break
                 time.sleep(1)
@@ -214,7 +214,7 @@ class JavaCodeAnalyzerAgent:
             """节点：获取 base/new 两个 commit 的详细信息（get_commit_info）。"""
             t0 = _log_node_start("commits", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] get_commit_info")
+                logger.info("[LangGraph] get_commit_info")
             base_commit = state.get("base_commit")
             new_commit = state.get("new_commit")
             if not base_commit or not new_commit:
@@ -228,7 +228,7 @@ class JavaCodeAnalyzerAgent:
             """节点：获取变更文件清单及 hunks 明细（get_changed_files_detailed）。"""
             t0 = _log_node_start("changes", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] get_changed_files_detailed")
+                logger.info("[LangGraph] get_changed_files_detailed")
             base_commit = state.get("base_commit")
             new_commit = state.get("new_commit")
             if not base_commit or not new_commit:
@@ -247,7 +247,7 @@ class JavaCodeAnalyzerAgent:
             """节点：为 Top 变更文件拉取 diff，并抽取 Before/After 代码片段。"""
             t0 = _log_node_start("diff_snippets", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] get_file_diff (snippets)")
+                logger.info("[LangGraph] get_file_diff (snippets)")
 
             base_commit = state.get("base_commit")
             new_commit = state.get("new_commit")
@@ -333,7 +333,7 @@ class JavaCodeAnalyzerAgent:
             """节点：将变更 hunks 映射到 Java 符号（类/方法），并汇总 seeds。"""
             t0 = _log_node_start("map_symbols", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] map_hunks_to_symbols (batched)")
+                logger.info("[LangGraph] map_hunks_to_symbols (batched)")
 
             raw = state.get("changed_files_detailed")
             parsed = self._safe_json_loads(raw)
@@ -387,7 +387,7 @@ class JavaCodeAnalyzerAgent:
             """节点：基于 seeds 调用 analyze_impact 计算调用链影响范围。"""
             t0 = _log_node_start("impact", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] analyze_impact")
+                logger.info("[LangGraph] analyze_impact")
 
             seeds = state.get("seeds") or {"methods": [], "classes": []}
             seeds_json = json.dumps(seeds, ensure_ascii=False)
@@ -412,7 +412,7 @@ class JavaCodeAnalyzerAgent:
             """
             t0 = _log_node_start("render", state)
             if self.verbose:
-                print("\n🧩 [LangGraph] render_markdown")
+                logger.info("[LangGraph] render_markdown")
 
             # 将核心数据喂给LLM生成Markdown报告（此阶段不再调用工具）
             base_info = state.get("base_commit_info", "")
@@ -556,15 +556,14 @@ class JavaCodeAnalyzerAgent:
             包含分析结果的字典
         '''
         if self.verbose:
-            print("="*70)
-            print("🤖 开始 LangGraph 工作流分析")
-            print("="*70)
-            print(f"📁 项目: {self.repo_path}")
-            print(f"🔄 变更: {base_commit[:8]} → {new_commit[:8]}")
-            print(f"🏷️  project_id: {self.project_id}")
-            print(f"🧠 模型: {getattr(self.llm, 'model_name', self.model)}")
-            print("="*70)
-            print()
+            logger.info("="*70)
+            logger.info("开始 LangGraph 工作流分析")
+            logger.info("="*70)
+            logger.info(f"项目: {self.repo_path}")
+            logger.info(f"变更: {base_commit[:8]} → {new_commit[:8]}")
+            logger.info(f"project_id: {self.project_id}")
+            logger.info(f"模型: {getattr(self.llm, 'model_name', self.model)}")
+            logger.info("="*70)
 
         graph = self._build_langgraph()
 
@@ -577,13 +576,13 @@ class JavaCodeAnalyzerAgent:
             final_output = result_state.get("final_markdown", "")
 
             if self.verbose:
-                print(f"\n{'='*70}")
-                print("✅ LangGraph 执行完成")
-                print(f"{'='*70}")
-                print(f"最终输出长度: {len(final_output)} 字符")
+                logger.info("="*70)
+                logger.info("LangGraph 执行完成")
+                logger.info("="*70)
+                logger.info(f"最终输出长度: {len(final_output)} 字符")
                 if final_output:
-                    print(f"最终输出预览: {final_output[:200]}{'...' if len(final_output) > 200 else ''}")
-                print(f"{'='*70}\n")
+                    logger.info(f"最终输出预览: {final_output[:200]}{'...' if len(final_output) > 200 else ''}")
+                logger.info("="*70)
 
             return {
                 "output": final_output,
@@ -602,7 +601,7 @@ class JavaCodeAnalyzerAgent:
         except Exception as e:
             error_str = str(e)
             if self.verbose:
-                print(f"\n❌ Agent 执行失败: {error_str}")
+                logger.error(f"Agent 执行失败: {error_str}")
             
             # 识别不同类型的错误并提供友好的提示
             if "JSONDecodeError" in error_str or "Unterminated string" in error_str:

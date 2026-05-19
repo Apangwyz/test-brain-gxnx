@@ -25,14 +25,15 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key-here'
+# 使用环境变量注入SECRET_KEY，确保生产环境安全
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 根据环境变量设置DEBUG模式，生产环境应设置为False
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = [
-    '*'
-]
+# 允许的主机列表，生产环境应限制为具体域名
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
 
 # 是否启用Milvus
 ENABLE_MILVUS = False
@@ -41,8 +42,8 @@ ENABLE_MILVUS = False
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
 MEDIA_URL = '/uploads/'
 
-# 允许所有域名跨域（开发环境用，生产环境需调整）
-CORS_ORIGIN_ALLOW_ALL = True
+# 跨域配置：仅开发环境允许所有跨域
+CORS_ORIGIN_ALLOW_ALL = DEBUG
 
 # Application definition
 INSTALLED_APPS = [

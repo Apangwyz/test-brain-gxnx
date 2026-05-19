@@ -3,11 +3,14 @@
 包括 Git 信息提取工具和源码分析 REST API 工具。
 """
 
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 import subprocess
 from git import Repo
 import requests
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _paginate_lines(
@@ -384,19 +387,19 @@ class AnalyzerAPITools:
                 "maven": {"resolveDeps": True},
                 "jdkHome": None
             }
-            print(f"\n🌐 API 调用: POST {url}")
-            print(f"📦 项目ID: {project_id}")
-            print(f"📦 请求体: {payload}")
-            print(f"🔍 完整URL: {url}")
-            print(f"📊 请求详情: projectId={project_id}, sourceSets=main, maven.resolveDeps=True")
+            logger.info(f"API 调用: POST {url}")
+            logger.info(f"项目ID: {project_id}")
+            logger.info(f"请求体: {payload}")
+            logger.info(f"完整URL: {url}")
+            logger.info(f"请求详情: projectId={project_id}, sourceSets=main, maven.resolveDeps=True")
             
             response = requests.post(url, json=payload, timeout=120)
             response.raise_for_status()
             result = response.json()
-            print(f"✅ 响应成功: {result}")
+            logger.info(f"响应成功: {result}")
             return result
         except Exception as e:
-            print(f"❌ 调用失败: {str(e)}")
+            logger.error(f"调用失败: {str(e)}")
             return {"error": str(e)}
     
     def get_index_status(self, project_id: str) -> Dict[str, Any]:
@@ -411,17 +414,17 @@ class AnalyzerAPITools:
         """
         try:
             url = f"{self.base_url}/index/status?projectId={project_id}"
-            print(f"\n🌐 API 调用: GET {url}")
-            print(f"🔍 完整URL: {url}")
-            print(f"📊 请求详情: 获取索引状态 projectId={project_id}")
+            logger.info(f"API 调用: GET {url}")
+            logger.info(f"完整URL: {url}")
+            logger.info(f"请求详情: 获取索引状态 projectId={project_id}")
             
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             result = response.json()
-            print(f"✅ 响应成功: {result}")
+            logger.info(f"响应成功: {result}")
             return result
         except Exception as e:
-            print(f"❌ 调用失败: {str(e)}")
+            logger.error(f"调用失败: {str(e)}")
             return {"error": str(e)}
     
     def map_hunks_to_symbols(self, changes: List[Dict[str, Any]], project_id: str) -> Dict[str, Any]:
@@ -440,8 +443,8 @@ class AnalyzerAPITools:
             payload = {"changes": changes}
             
             # 详细输出文件列表
-            print(f"\n📋 筛选后的变更文件列表 ({len(changes)} 个):")
-            print(f"🏷️  项目ID: {project_id}")
+            logger.info(f"筛选后的变更文件列表 ({len(changes)} 个):")
+            logger.info(f"项目ID: {project_id}")
             for i, change in enumerate(changes, 1):
                 # 兼容两种格式：path/changeType（标准格式）和 b_path/a_path/change_type（内部格式）
                 path = change.get('path') or change.get('b_path') or change.get('a_path') or 'unknown'
@@ -460,20 +463,20 @@ class AnalyzerAPITools:
                 else:
                     stats = ""
                 
-                print(f"   {i:2d}. {path:<60} [{change_type:6}] {stats}")
+                logger.info(f"  {i:2d}. {path:<60} [{change_type:6}] {stats}")
             
-            print(f"\n🌐 API 调用: POST {url}")
-            print(f"📦 请求体: {len(changes)} 个文件变更")
-            print(f"🔍 完整URL: {url}")
-            print(f"📊 请求详情: projectId={project_id}, changes={len(changes)} items")
+            logger.info(f"API 调用: POST {url}")
+            logger.info(f"请求体: {len(changes)} 个文件变更")
+            logger.info(f"完整URL: {url}")
+            logger.info(f"请求详情: projectId={project_id}, changes={len(changes)} items")
             
             response = requests.post(url, json=payload, timeout=120)
             response.raise_for_status()
             result = response.json()
-            print(f"✅ 响应成功: {result}")
+            logger.info(f"响应成功: {result}")
             return result
         except Exception as e:
-            print(f"❌ 调用失败: {str(e)}")
+            logger.error(f"调用失败: {str(e)}")
             return {"error": str(e)}
     
     def analyze_impact(
@@ -505,19 +508,19 @@ class AnalyzerAPITools:
                 "depth": depth,
                 "includeEdges": include_edges
             }
-            print(f"\n🌐 API 调用: POST {url}")
-            print(f"🏷️  项目ID: {project_id}")
-            print(f"📦 请求体: seeds={seeds}, depth={depth}, direction={direction}")
-            print(f"🔍 完整URL: {url}")
-            print(f"📊 请求详情: projectId={project_id}, seeds={len(seeds) if isinstance(seeds, list) else 1} items, depth={depth}, direction={direction}")
+            logger.info(f"API 调用: POST {url}")
+            logger.info(f"项目ID: {project_id}")
+            logger.info(f"请求体: seeds={seeds}, depth={depth}, direction={direction}")
+            logger.info(f"完整URL: {url}")
+            logger.info(f"请求详情: projectId={project_id}, seeds={len(seeds) if isinstance(seeds, list) else 1} items, depth={depth}, direction={direction}")
             
             response = requests.post(url, json=payload, timeout=120)
             response.raise_for_status()
             result = response.json()
-            print(f"✅ 响应成功: {result}")
+            logger.info(f"响应成功: {result}")
             return result
         except Exception as e:
-            print(f"❌ 调用失败: {str(e)}")
+            logger.error(f"调用失败: {str(e)}")
             return {"error": str(e)}
 
 

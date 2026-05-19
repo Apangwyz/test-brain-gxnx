@@ -24,8 +24,32 @@
             </div>
             
             <div class="form-group">
+                <label for="file-upload">上传需求文档:</label>
+                <div class="custom-file-upload">
+                    <div class="upload-area-container">
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-icon">
+                                <i class="fas fa-upload fa-3x text-primary"></i>
+                            </div>
+                            <p class="upload-text">点击或拖拽文件到此处上传</p>
+                            <p class="upload-hint">支持 .docx、.md、.txt 格式，可多选</p>
+                        </div>
+                        <input type="file" id="file-input" name="documents" multiple accept=".docx,.md,.txt" class="file-input-overlay">
+                    </div>
+                    <div id="uploaded-files" class="mt-3"></div>
+                    <div id="upload-progress" class="mt-2" style="display: none;">
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p class="progress-text mt-1"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
                 <label id="input-text-label" for="input-text">需求描述:</label>
-                <textarea id="input-text" name="requirements" class="form-control" rows="10" required>{{ requirements }}</textarea>
+                <textarea id="input-text" name="requirements" class="form-control" rows="10">{{ requirements }}</textarea>
+                <small class="form-text text-muted">您可以直接输入需求描述，或上传需求文档（文档内容将自动填充到此文本框）</small>
             </div>
             
             <div class="row mb-3">
@@ -131,6 +155,309 @@
 {% endif %}
 
 <style>
+/* 文件上传区域容器 */
+.upload-area-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+/* 文件上传区域样式 */
+.upload-area {
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+    position: relative;
+    z-index: 1;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+.upload-area.dragover {
+    border-color: #28a745;
+    background-color: #f0fff0;
+}
+
+.upload-area.has-files {
+    border-color: #28a745;
+    background-color: #f8fff8;
+}
+
+/* 文件输入覆盖层 - 使用定位替代display:none以确保兼容性 */
+.file-input-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+    font-size: 0;
+    line-height: 0;
+}
+
+.file-input-overlay:focus {
+    outline: none;
+}
+
+.upload-icon {
+    margin-bottom: 15px;
+}
+
+.upload-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.upload-hint {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* 已上传文件列表 */
+.uploaded-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.uploaded-file-item:hover {
+    background-color: #e9ecef;
+}
+
+.uploaded-file-item.success {
+    border-color: #28a745;
+    background-color: #d4edda;
+}
+
+.uploaded-file-item.error {
+    border-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.file-icon {
+    margin-right: 12px;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.file-details {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-meta {
+    font-size: 11px;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.file-status {
+    display: flex;
+    align-items: center;
+    margin-left: 15px;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.status-icon {
+    margin-right: 4px;
+}
+
+.file-actions {
+    display: flex;
+    align-items: center;
+    margin-left: 15px;
+    gap: 8px;
+}
+
+.retry-btn {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.retry-btn:hover {
+    background-color: #e7f3ff;
+}
+
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.remove-file-btn:hover {
+    background-color: #f8d7da;
+}
+
+.file-status.success {
+    color: #28a745;
+}
+
+.file-status.error {
+    color: #dc3545;
+}
+
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.remove-file-btn:hover {
+    background-color: #f8d7da;
+}
+
+/* 进度条样式 */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+/* 动画效果 */
+@keyframes successPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes slideOut {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: 60px;
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(100%);
+        max-height: 0;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 消息提示样式 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.toast-message {
+    flex: 1;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.success {
+    background-color: #28a745;
+}
+
+.toast.error {
+    background-color: #dc3545;
+}
+
+.toast.warning {
+    background-color: #ffc107;
+    color: #333;
+}
+
 .bootstrap-select .dropdown-menu li a {
     position: relative;
     padding-left: 40px !important;
