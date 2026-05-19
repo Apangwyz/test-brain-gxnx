@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>进度窗口修复测试</title>
+    <link rel="stylesheet" href="progress.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .test-section {
+            background: white;
+            padding: 24px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #212529;
+        }
+        .test-section p {
+            color: #6c757d;
+            margin-bottom: 16px;
+        }
+        .test-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .test-btn.secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        .test-btn.danger {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+        }
+        .log-item {
+            margin: 6px 0;
+            padding: 6px 10px;
+            border-left: 3px solid #667eea;
+            padding-left: 12px;
+        }
+        .log-item.info {
+            border-left-color: #667eea;
+        }
+        .log-item.success {
+            border-left-color: #28a745;
+        }
+        .log-item.error {
+            border-left-color: #dc3545;
+        }
+        .test-info {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 16px;
+        }
+        .test-info i {
+            margin-right: 8px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-section">
+        <h2><i class="fas fa-check-circle"></i> 进度窗口修复测试</h2>
+        <p>测试目标：验证以下两个问题是否已修复：</p>
+        <ul>
+            <li><strong>问题1：</strong>测试用例生成进度页面无法通过点击关闭按钮、缩小按钮或键盘快捷键关闭</li>
+            <li><strong>问题2：</strong>错误日志显示不完整，内容被截断</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>测试1：窗口交互功能</h3>
+        <div class="test-info">
+            <i class="fas fa-keyboard"></i>
+            <strong>提示：</strong>打开进度窗口后，您可以：
+            <ul>
+                <li>点击「后台运行」按钮将任务最小化到后台</li>
+                <li>任务完成后点击「完成」按钮关闭窗口</li>
+                <li>按 <kbd>ESC</kbd> 键关闭窗口（仅在窗口可关闭时生效）</li>
+            </ul>
+        </div>
+        
+        <button class="test-btn" onclick="showProgress()">
+            <i class="fas fa-play"></i> 显示进度窗口
+        </button>
+        <button class="test-btn secondary" onclick="showProgressWithError()">
+            <i class="fas fa-exclamation-triangle"></i> 显示带错误的窗口
+        </button>
+        <button class="test-btn danger" onclick="showProgressWithLongError()">
+            <i class="fas fa-bug"></i> 显示带长错误日志的窗口
+        </button>
+    </div>
+
+    <div class="test-section">
+        <h3>测试日志</h3>
+        <div class="log" id="test-log"></div>
+        <button class="test-btn secondary" onclick="clearLog()" style="margin-top: 12px;">
+            <i class="fas fa-trash"></i> 清空日志
+        </button>
+    </div>
+
+    <script>
+        // 模拟 showNotification 函数
+        function showNotification(message, type = 'info') {
+            log(message, type);
+        }
+
+        // 日志记录
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('test-log');
+            const logItem = document.createElement('div');
+            logItem.className = `log-item ${type}`;
+            logItem.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            logDiv.appendChild(logItem);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('test-log').innerHTML = '';
+            log('日志已清空', 'info');
+        }
+
+        // 创建进度管理器实例
+        let progressManager = null;
+
+        function initProgressManager() {
+            if (!progressManager) {
+                progressManager = new GenerationProgressManager();
+                
+                progressManager.onComplete(function(result) {
+                    log('任务完成回调触发', 'success');
+                });
+                
+                progressManager.onError(function(message) {
+                    log('任务错误回调触发：' + message.substring(0, 100) + (message.length > 100 ? '...' : ''), 'error');
+                });
+            }
+            return progressManager;
+        }
+
+        function showProgress() {
+            const pm = initProgressManager();
+            pm.show();
+            log('进度窗口已显示', 'info');
+            
+            // 初始化步骤
+            const initialSteps = [
+                { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'pending' },
+                { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'pending' },
+                { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+            ];
+            pm.initializeSteps(initialSteps);
+            log('步骤已初始化', 'info');
+            
+            // 模拟进度更新
+            simulateProgress();
+        }
+
+        function showProgressWithError() {
+            const pm = initProgressManager();
+            pm.show();
+            log('带错误的进度窗口已显示', 'info');
+            
+            // 初始化步骤
+            const initialSteps = [
+                { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'running' },
+                { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'pending' },
+                { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+            ];
+            pm.initializeSteps(initialSteps);
+            
+            // 模拟错误
+            setTimeout(() => {
+                pm.updateProgress({
+                    overall_progress: 30,
+                    status: 'error',
+                    message: '测试错误：无法连接到 AI 服务，请检查网络连接后重试。',
+                    steps: [
+                        { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'completed' },
+                        { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'error', details: '连接超时' },
+                        { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                        { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                        { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                        { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+                    ]
+                });
+                log('模拟错误已触发', 'error');
+            }, 1500);
+        }
+
+        function showProgressWithLongError() {
+            const pm = initProgressManager();
+            pm.show();
+            log('带长错误日志的进度窗口已显示', 'info');
+            
+            // 初始化步骤
+            const initialSteps = [
+                { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'running' },
+                { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'pending' },
+                { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+            ];
+            pm.initializeSteps(initialSteps);
+            
+            // 模拟长错误
+            setTimeout(() => {
+                const longError = `生成测试用例时发生错误：
+
+TypeError: 'NoneType' object has no attribute 'get_embeddings'
+
+详细错误信息：
+  File "/path/to/project/apps/ai_agents/test_case_generator/generator.py", line 127, in generate_test_cases
+    knowledge_context = self.retrieve_knowledge(requirement)
+  File "/path/to/project/apps/ai_agents/test_case_generator/generator.py", line 89, in retrieve_knowledge
+    results = self.knowledge_service.get_embeddings(query)
+  File "/path/to/project/apps/knowledge/service.py", line 45, in get_embeddings
+    return self.vector_store.search(query, top_k=5)
+  File "/path/to/project/apps/knowledge/vector_store.py", line 78, in search
+    raise ValueError("向量数据库连接失败")
+
+Caused by: ConnectionError: 无法连接到 Milvus 服务
+  Host: localhost
+  Port: 19530
+  Error: Connection refused
+
+建议解决方案：
+1. 检查 Milvus 服务是否已启动
+2. 验证 .env 文件中的 MILVUS_HOST 和 MILVUS_PORT 配置
+3. 确保网络连接正常
+4. 查看 logs/error.log 获取更多详细信息`;
+                
+                pm.updateProgress({
+                    overall_progress: 25,
+                    status: 'error',
+                    message: longError,
+                    steps: [
+                        { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'completed' },
+                        { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'completed' },
+                        { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'error', details: '向量数据库连接失败' },
+                        { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                        { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                        { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+                    ]
+                });
+                log('长错误日志已显示', 'error');
+            }, 1500);
+        }
+
+        // 模拟进度更新
+        function simulateProgress() {
+            const pm = progressManager;
+            let stepIndex = 0;
+            const steps = ['initializing', 'analyzing', 'retrieving', 'generating', 'validating', 'completed'];
+            const progresses = [16, 33, 50, 75, 90, 100];
+            
+            function updateStep() {
+                if (stepIndex >= steps.length) return;
+                
+                const stepUpdates = steps.map((stage, idx) => ({
+                    stage: stage,
+                    title: getStepTitle(stage),
+                    description: getStepDescription(stage),
+                    status: idx < stepIndex ? 'completed' : idx === stepIndex ? 'running' : 'pending'
+                }));
+                
+                pm.updateProgress({
+                    overall_progress: progresses[stepIndex],
+                    status: stepIndex === steps.length - 1 ? 'completed' : 'running',
+                    steps: stepUpdates
+                });
+                
+                stepIndex++;
+                if (stepIndex < steps.length) {
+                    setTimeout(updateStep, 1500);
+                }
+            }
+            
+            setTimeout(updateStep, 500);
+        }
+
+        function getStepTitle(stage) {
+            const titles = {
+                initializing: '初始化',
+                analyzing: '分析需求',
+                retrieving: '检索知识库',
+                generating: '生成测试用例',
+                validating: '验证结果',
+                completed: '完成'
+            };
+            return titles[stage] || stage;
+        }
+
+        function getStepDescription(stage) {
+            const descriptions = {
+                initializing: '准备生成环境...',
+                analyzing: '正在理解您的需求描述...',
+                retrieving: '从知识库中检索相关信息...',
+                generating: 'AI 正在生成测试用例...',
+                validating: '验证生成的测试用例...',
+                completed: '测试用例生成完成！'
+            };
+            return descriptions[stage] || '';
+        }
+
+        // 页面加载完成后自动加载 progress.js
+        window.addEventListener('DOMContentLoaded', function() {
+            log('页面加载完成', 'info');
+            
+            // 动态加载 progress.js
+            const script = document.createElement('script');
+            script.src = 'progress.js';
+            script.onload = function() {
+                log('progress.js 加载成功', 'success');
+                
+                // 验证 GenerationProgressManager 是否存在
+                if (typeof GenerationProgressManager !== 'undefined') {
+                    log('✓ GenerationProgressManager 类已加载', 'success');
+                } else {
+                    log('✗ GenerationProgressManager 类未加载', 'error');
+                }
+            };
+            script.onerror = function() {
+                log('✗ progress.js 加载失败', 'error');
+            };
+            document.head.appendChild(script);
+        });
+
+        // 键盘事件监听提示
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('generation-progress-modal');
+                if (modal && modal.classList.contains('active')) {
+                    log('检测到 ESC 键按下', 'info');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

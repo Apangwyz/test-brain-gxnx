@@ -152,7 +152,7 @@ LLM_PROVIDERS = {
     },
     'qwen': {
         'name': '通义千问',
-        'model': 'qvq-max-2025-03-25',
+        'model': 'qwen-plus-2025-01-25',
         'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         'temperature': 0.7,
         'max_tokens': 65000,  # 修正为不超过65536的值

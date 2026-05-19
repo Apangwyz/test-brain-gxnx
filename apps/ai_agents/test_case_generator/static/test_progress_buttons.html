@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>进度窗口按钮测试</title>
+    <link rel="stylesheet" href="progress.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .test-btn:hover {
+            background: #5568d3;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-section">
+        <h2>进度窗口按钮功能测试</h2>
+        <p>测试目标：验证进度窗口的关闭和后台运行按钮是否能正常工作</p>
+        
+        <button class="test-btn" onclick="showProgress()">显示进度窗口</button>
+        <button class="test-btn" onclick="enableButtons()">启用按钮</button>
+        <button class="test-btn" onclick="disableButtons()">禁用按钮</button>
+        <button class="test-btn" onclick="clearLog()">清空日志</button>
+    </div>
+
+    <div class="test-section">
+        <h3>测试日志</h3>
+        <div class="log" id="test-log"></div>
+    </div>
+
+    <script>
+        // 模拟 showNotification 函数
+        function showNotification(message, type = 'info') {
+            log(`通知：${message} (${type})`);
+        }
+
+        // 日志记录
+        function log(message) {
+            const logDiv = document.getElementById('test-log');
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item';
+            logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(logItem);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('test-log').innerHTML = '';
+            log('日志已清空');
+        }
+
+        // 创建进度管理器实例
+        let progressManager = null;
+
+        function showProgress() {
+            if (!progressManager) {
+                progressManager = new GenerationProgressManager();
+                
+                progressManager.onComplete(function(result) {
+                    log('任务完成回调触发');
+                });
+                
+                progressManager.onError(function(message) {
+                    log('任务错误回调触发：' + message);
+                });
+            }
+            
+            progressManager.show();
+            log('进度窗口已显示');
+            
+            // 初始化步骤
+            const initialSteps = [
+                { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'pending' },
+                { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'pending' },
+                { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
+                { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+            ];
+            progressManager.initializeSteps(initialSteps);
+            log('步骤已初始化');
+        }
+
+        function enableButtons() {
+            const closeBtn = document.getElementById('close-progress-btn');
+            const backgroundBtn = document.getElementById('background-btn');
+            
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.innerHTML = '<i class="fas fa-check"></i> 完成';
+                closeBtn.title = '关闭窗口';
+                log('关闭按钮已启用');
+            }
+            
+            if (backgroundBtn) {
+                backgroundBtn.style.display = 'inline-block';
+                log('后台运行按钮已显示');
+            }
+        }
+
+        function disableButtons() {
+            const closeBtn = document.getElementById('close-progress-btn');
+            
+            if (closeBtn) {
+                closeBtn.disabled = true;
+                closeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                log('关闭按钮已禁用');
+            }
+        }
+
+        // 页面加载完成后自动加载 progress.js
+        window.addEventListener('DOMContentLoaded', function() {
+            log('页面加载完成');
+            
+            // 动态加载 progress.js
+            const script = document.createElement('script');
+            script.src = 'progress.js';
+            script.onload = function() {
+                log('progress.js 加载成功');
+                
+                // 验证 GenerationProgressManager 是否存在
+                if (typeof GenerationProgressManager !== 'undefined') {
+                    log('✓ GenerationProgressManager 类已加载');
+                } else {
+                    log('✗ GenerationProgressManager 类未加载');
+                }
+            };
+            script.onerror = function() {
+                log('✗ progress.js 加载失败');
+            };
+            document.head.appendChild(script);
+        });
+    </script>
+</body>
+</html>

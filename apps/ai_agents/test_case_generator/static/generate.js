@@ -25,7 +25,7 @@ function initFileUpload() {
     const progressText = uploadProgress?.querySelector('.progress-text');
     
     // 支持的文件类型
-    const allowedExtensions = ['.docx', '.md', '.txt'];
+    const allowedExtensions = ['.docx', '.md', '.txt', '.pdf'];
     
     // 拖拽上传 - 处理dragenter事件
     uploadArea?.addEventListener('dragenter', function(e) {
@@ -92,15 +92,17 @@ function initFileUpload() {
         
         // 筛选有效文件
         const validFiles = [];
+        const maxFileSize = 50 * 1024 * 1024; // 50MB
         files.forEach(file => {
             const extension = file.name.split('.').pop().toLowerCase();
             if (!allowedExtensions.includes('.' + extension)) {
-                showNotification(`不支持的文件类型: .${extension}，支持 .docx、.md、.txt`, 'error');
+                showNotification(`不支持的文件类型: .${extension}，支持 .docx、.md、.txt、.pdf`, 'error');
                 return;
             }
             
-            if (file.size > 10 * 1024 * 1024) {
-                showNotification(`文件 "${file.name}" 大小超过限制（最大10MB）`, 'error');
+            if (file.size > maxFileSize) {
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                showNotification(`文件 "${file.name}" 大小超过限制（${fileSizeMB}MB > 50MB）`, 'error');
                 return;
             }
             
@@ -190,6 +192,8 @@ function initFileUpload() {
                 return 'fas fa-file-code text-purple';
             case 'txt':
                 return 'fas fa-file-text text-gray';
+            case 'pdf':
+                return 'fas fa-file-pdf text-red';
             default:
                 return 'fas fa-file text-gray';
         }
@@ -445,13 +449,6 @@ function initFormSubmit() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'block';
-            }
-            if (generateButton) {
-                generateButton.disabled = true;
-            }
-            
             // 获取输入文本
             const inputTextValue = inputText?.value?.trim();
             
@@ -470,9 +467,12 @@ function initFormSubmit() {
             
             if (!inputTextValue) {
                 showNotification('请输入需求描述或上传需求文档', 'error');
-                if (loadingIndicator) loadingIndicator.style.display = 'none';
-                if (generateButton) generateButton.disabled = false;
                 return;
+            }
+            
+            // 禁用生成按钮
+            if (generateButton) {
+                generateButton.disabled = true;
             }
             
             // 清空结果容器
@@ -492,8 +492,36 @@ function initFormSubmit() {
             
             console.log('发送的数据:', requestData);
             
-            // 发送请求
-            fetch('/test_case_generator/', {
+            // 创建进度管理器
+            const progressManager = new GenerationProgressManager();
+            
+            // 设置完成回调
+            progressManager.onComplete(function(testCases) {
+                // 启用生成按钮
+                if (generateButton) {
+                    generateButton.disabled = false;
+                }
+                
+                // 显示测试用例
+                displayTestCases(testCases);
+                
+                // 保存生成的测试用例到会话存储
+                sessionStorage.setItem('generatedTestCases', JSON.stringify(testCases));
+                sessionStorage.setItem('inputText', inputTextValue);
+            });
+            
+            // 设置错误回调
+            progressManager.onError(function(message) {
+                // 启用生成按钮
+                if (generateButton) {
+                    generateButton.disabled = false;
+                }
+                
+                showNotification('生成失败: ' + message, 'error');
+            });
+            
+            // 发送请求启动任务
+            fetch('/test_case_generator/generate-with-progress/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -503,46 +531,37 @@ function initFormSubmit() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('解析后的响应数据:', data);
-                
-                // 隐藏加载指示器
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-                if (generateButton) {
-                    generateButton.disabled = false;
-                }
-                
-                if (data.success) {
-                    // 创建或获取 result-container
-                    let resultContainer = document.getElementById('result-container');
-                    if (!resultContainer) {
-                        resultContainer = document.createElement('div');
-                        resultContainer.id = 'result-container';
-                        resultContainer.className = 'mt-4';
-                        generateForm.parentNode.insertBefore(resultContainer, generateForm.nextSibling);
-                    }
+                if (data.success && data.task_id) {
+                    console.log('任务已启动:', data.task_id);
                     
-                    // 使用已有的 displayTestCases 函数显示测试用例
-                    displayTestCases(data.test_cases);
+                    // 显示进度模态框
+                    progressManager.show();
                     
-                    // 保存生成的测试用例到会话存储
-                    sessionStorage.setItem('generatedTestCases', JSON.stringify(data.test_cases));
-                    sessionStorage.setItem('inputText', inputTextValue);
+                    // 初始化步骤显示
+                    const initialSteps = [
+                        { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'pending' },
+                        { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'pending' },
+                        { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'pending' },
+                        { stage: 'generating', title: '生成测试用例', description: 'AI正在生成测试用例...', status: 'pending' },
+                        { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
+                        { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
+                    ];
+                    progressManager.initializeSteps(initialSteps);
+                    
+                    // 开始监听进度
+                    progressManager.startProgressStream(data.task_id);
                 } else {
-                    console.error('服务器返回错误:', data.message);
-                    if (resultContainer) {
-                        resultContainer.innerHTML = `<div class="alert alert-danger">${data.message || '生成测试用例时出错'}</div>`;
+                    showNotification(data.message || '启动任务失败', 'error');
+                    if (generateButton) {
+                        generateButton.disabled = false;
                     }
                 }
             })
             .catch(error => {
                 console.error('请求发生错误:', error);
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-                if (resultContainer) {
-                    resultContainer.innerHTML = `<div class="alert alert-danger">请求失败: ${error.message}</div>`;
+                showNotification('请求失败: ' + error.message, 'error');
+                if (generateButton) {
+                    generateButton.disabled = false;
                 }
             });
         });

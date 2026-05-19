@@ -45,6 +45,9 @@ class TaskContextFilter(logging.Filter):
                 task_id = _task_id_registry.get(threading.get_ident())
         if task_id is not None:
             setattr(record, 'task_id', task_id)
+        # 确保 task_id 字段始终存在
+        if not hasattr(record, 'task_id'):
+            setattr(record, 'task_id', 'None')
         # 允许业务在 record 上附加多个任务ID或任务类型（可选）
         if not hasattr(record, 'task_ids'):
             setattr(record, 'task_ids', None)
@@ -87,6 +90,22 @@ class ProgressMirrorHandler(logging.Handler):
             except Exception:
                 pass
 
+
+class DetailedLogFormatter(logging.Formatter):
+    """详细日志格式化器，支持完整的错误堆栈信息显示"""
+    
+    def format(self, record):
+        """格式化日志记录，包含完整的异常堆栈信息"""
+        # 确保 task_id 字段存在
+        if not hasattr(record, 'task_id'):
+            record.task_id = 'None'
+        
+        # 调用父类格式化（已包含堆栈信息）
+        result = super().format(record)
+        
+        return result
+
+
 # 日志级别映射
 LOG_LEVELS = {
     'DEBUG': logging.DEBUG,
@@ -95,6 +114,7 @@ LOG_LEVELS = {
     'ERROR': logging.ERROR,
     'CRITICAL': logging.CRITICAL
 }
+
 
 class LogManager:
     """统一的日志管理器"""
@@ -137,7 +157,28 @@ class LogManager:
         }
         
         LogManager._initialized = True
-        
+    
+    def _get_detailed_formatter(self, include_exc_info=True):
+        """获取详细的日志格式器，包含完整的错误堆栈信息"""
+        if include_exc_info:
+            # 完整格式：包含时间、名称、级别、线程信息、任务ID、消息和异常堆栈
+            return DetailedLogFormatter(
+                '%(asctime)s - %(name)s - %(levelname)s - '
+                '[thread=%(thread)d %(threadName)s] - '
+                '[task_id=%(task_id)s] - '
+                '[module=%(module)s:%(lineno)d] - '
+                '%(message)s'
+            )
+        else:
+            # 简化格式：不包含异常堆栈
+            return logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - '
+                '[thread=%(thread)d %(threadName)s] - '
+                '[task_id=%(task_id)s] - '
+                '[module=%(module)s:%(lineno)d] - '
+                '%(message)s'
+            )
+    
     def _configure_root_logger(self):
         """配置根日志记录器"""
         root_logger = logging.getLogger()
@@ -147,16 +188,13 @@ class LogManager:
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
         
-        # 添加控制台处理器
+        # 添加控制台处理器（完整格式，包含堆栈）
         console_handler = logging.StreamHandler()
         console_handler.setLevel(self.log_level)
-        console_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [thread=%(thread)d %(threadName)s] - %(message)s'
-        )
-        console_handler.setFormatter(console_formatter)
+        console_handler.setFormatter(self._get_detailed_formatter(include_exc_info=True))
         root_logger.addHandler(console_handler)
         
-        # 添加文件处理器 - 所有日志
+        # 添加文件处理器 - 所有日志（完整格式，包含堆栈）
         all_log_file = os.path.join(self.log_dir, 'all.log')
         file_handler = logging.handlers.RotatingFileHandler(
             all_log_file,
@@ -164,13 +202,10 @@ class LogManager:
             backupCount=self.backup_count
         )
         file_handler.setLevel(self.log_level)
-        file_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [thread=%(thread)d %(threadName)s] - %(message)s'
-        )
-        file_handler.setFormatter(file_formatter)
+        file_handler.setFormatter(self._get_detailed_formatter(include_exc_info=True))
         root_logger.addHandler(file_handler)
         
-        # 添加文件处理器 - 仅错误日志
+        # 添加文件处理器 - 仅错误日志（完整格式，包含堆栈）
         error_log_file = os.path.join(self.log_dir, 'error.log')
         error_handler = logging.handlers.RotatingFileHandler(
             error_log_file,
@@ -178,17 +213,15 @@ class LogManager:
             backupCount=self.backup_count
         )
         error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(file_formatter)
+        error_handler.setFormatter(self._get_detailed_formatter(include_exc_info=True))
         root_logger.addHandler(error_handler)
 
         # 注入任务上下文过滤器与镜像处理器
         task_filter = TaskContextFilter()
         root_logger.addFilter(task_filter)
         mirror_handler = ProgressMirrorHandler(level=self.log_level)
-        # 与控制台/文件一致并额外携带 task_id，便于前端排查
-        mirror_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [thread=%(thread)d %(threadName)s] - [task_id=%(task_id)s] - %(message)s'
-        ))
+        # 与控制台/文件一致并额外携带 task_id，便于前端排查（完整格式，包含堆栈）
+        mirror_handler.setFormatter(self._get_detailed_formatter(include_exc_info=True))
         root_logger.addHandler(mirror_handler)
     
     def _get_logger(self, name):
@@ -203,10 +236,8 @@ class LogManager:
             backupCount=self.backup_count
         )
         handler.setLevel(self.log_level)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [thread=%(thread)d %(threadName)s] - %(message)s'
-        )
-        handler.setFormatter(formatter)
+        # 使用包含完整错误堆栈信息的格式化器
+        handler.setFormatter(self._get_detailed_formatter(include_exc_info=True))
         
         # 清除现有处理器
         for h in logger.handlers[:]:
@@ -236,10 +267,10 @@ class LogManager:
         # 如果不是预定义的模块，通过_get_logger创建带有TaskContextFilter的日志记录器
         return self._get_logger(name)
 
+
 # 创建单例实例
 log_manager = LogManager()
 
 def get_logger(name):
     """获取日志记录器的便捷函数"""
     return log_manager.get_logger(name)
-

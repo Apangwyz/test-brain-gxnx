@@ -14,10 +14,14 @@ SUPPORTED_FILE_TYPES = {
     '.docx': 'Microsoft Word文档',
     '.md': 'Markdown文档',
     '.txt': '纯文本文件',
+    '.pdf': 'PDF文档',
 }
 
 # 允许的文件扩展名
 ALLOWED_EXTENSIONS = list(SUPPORTED_FILE_TYPES.keys())
+
+# 文件大小限制（50MB）
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 def is_allowed_file(filename):
     """
@@ -31,6 +35,35 @@ def is_allowed_file(filename):
     """
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in [ext[1:] for ext in ALLOWED_EXTENSIONS]
+
+def is_file_size_allowed(file_size):
+    """
+    检查文件大小是否在允许范围内
+    
+    Args:
+        file_size: 文件大小（字节）
+        
+    Returns:
+        bool: 是否允许上传
+    """
+    return file_size <= MAX_FILE_SIZE
+
+def get_human_readable_size(bytes_size):
+    """
+    将字节转换为人类可读的文件大小
+    
+    Args:
+        bytes_size: 字节数
+        
+    Returns:
+        str: 人类可读的文件大小
+    """
+    if bytes_size < 1024:
+        return f"{bytes_size} B"
+    elif bytes_size < 1024 * 1024:
+        return f"{bytes_size / 1024:.2f} KB"
+    else:
+        return f"{bytes_size / (1024 * 1024):.2f} MB"
 
 def get_file_extension(filename):
     """
@@ -135,6 +168,55 @@ def parse_txt(file_path):
         logger.error(f"解析TXT文件失败: {e}")
         raise
 
+def parse_pdf(file_path):
+    """
+    解析PDF文档(.pdf)
+    
+    Args:
+        file_path: 文件路径
+        
+    Returns:
+        str: 提取的文本内容
+    """
+    try:
+        # 尝试使用PyPDF2解析
+        try:
+            from PyPDF2 import PdfReader
+            
+            reader = PdfReader(file_path)
+            content = []
+            
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    content.append(text.strip())
+            
+            return '\n\n'.join(content)
+            
+        except ImportError:
+            logger.warning("PyPDF2库未安装，尝试使用pdfplumber")
+            
+            # 尝试使用pdfplumber解析
+            try:
+                import pdfplumber
+                
+                with pdfplumber.open(file_path) as pdf:
+                    content = []
+                    for page in pdf.pages:
+                        text = page.extract_text()
+                        if text:
+                            content.append(text.strip())
+                
+                return '\n\n'.join(content)
+                
+            except ImportError:
+                logger.error("PyPDF2和pdfplumber库均未安装，请安装其中一个: pip install PyPDF2 或 pip install pdfplumber")
+                raise ImportError("需要安装PyPDF2或pdfplumber库来解析PDF文件")
+                
+    except Exception as e:
+        logger.error(f"解析PDF文件失败: {e}")
+        raise
+
 def parse_file(file_path):
     """
     根据文件类型解析文件内容
@@ -160,6 +242,8 @@ def parse_file(file_path):
         content = parse_markdown(file_path)
     elif ext == '.txt':
         content = parse_txt(file_path)
+    elif ext == '.pdf':
+        content = parse_pdf(file_path)
     else:
         raise ValueError(f"未实现的文件类型解析: {ext}")
     
@@ -185,6 +269,12 @@ def extract_text_from_uploaded_file(uploaded_file):
     if not is_allowed_file(filename):
         ext = get_file_extension(filename)
         raise ValueError(f"不支持的文件类型: {ext}。支持的类型: {', '.join(SUPPORTED_FILE_TYPES.values())}")
+    
+    # 验证文件大小
+    if hasattr(uploaded_file, 'size'):
+        file_size = uploaded_file.size
+        if not is_file_size_allowed(file_size):
+            raise ValueError(f"文件大小超出限制。当前大小: {get_human_readable_size(file_size)}，最大允许: {get_human_readable_size(MAX_FILE_SIZE)}")
     
     # 创建临时文件
     import tempfile

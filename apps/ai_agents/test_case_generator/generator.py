@@ -44,6 +44,7 @@ class TestCaseGeneratorAgent:
         self.logger.info(f"构建后大模型提示词+用户需求消息: \n{'='*50}\n{messages}\n{'='*50}")
         
         # 调用LLM服务
+        result = None
         try:
             response = await self.llm_service.ainvoke(messages)
             result = response.content
@@ -65,7 +66,7 @@ class TestCaseGeneratorAgent:
             return valid_test_cases
             
         except Exception as e:
-            raise ValueError(f"无法解析生成的测试用例: {str(e)}\n原始响应: {result}")
+            raise ValueError(f"无法解析生成的测试用例: {str(e)}\n原始响应: {result if result else '未获取到响应'}")
 
 
     
@@ -117,11 +118,16 @@ class TestCaseGeneratorAgent:
     def _get_knowledge_context(self, input_text: str) -> str:
         """获取相关知识上下文"""
         try:
-            # 暂时返回空字符串，直到KnowledgeService实现完成
-            # return ""
-            knowledge = self.knowledge_service.search_relevant_knowledge(input_text)
-            if knowledge:
-                return f"{knowledge}"
+            # 检查知识库服务是否可用
+            if self.knowledge_service and hasattr(self.knowledge_service, 'search_relevant_knowledge'):
+                knowledge = self.knowledge_service.search_relevant_knowledge(input_text)
+                if knowledge:
+                    return f"{knowledge}"
+            else:
+                self.logger.info("知识库服务未配置，跳过知识上下文获取")
+        except AttributeError as e:
+            # embedder或vector_store为None时的处理
+            self.logger.info(f"知识库服务组件未初始化，跳过知识上下文获取: {str(e)}")
         except Exception as e:
             self.logger.warning(f"获取知识上下文失败: {str(e)}")
         return ""
