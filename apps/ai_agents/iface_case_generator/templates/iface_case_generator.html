@@ -4,96 +4,37 @@
 {% block title %}TestBrain - 接口case生成{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'common_progress.css' %}">
 <style>
     .upload-container {
         margin: 20px;
         padding: 20px;
     }
     
-    .upload-area {
-        border: 2px dashed #ddd;
-        border-radius: 8px;
-        padding: 60px 40px;
-        text-align: center;
-        background-color: #f8f9fa;
-        margin: 30px 0;
-        min-height: 300px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+    .api-selection-container {
+        margin: 20px;
+        padding: 20px;
     }
 
-    .upload-area:hover {
-        border-color: #007bff;
-        background-color: #f1f7ff;
-    }
-
-    .upload-area.highlight {
-        border-color: #28a745;
-        background-color: #d4edda;
-        transform: scale(1.02);
-        transition: all 0.2s ease;
-    }
-
-    .file-input-button {
-        padding: 12px 30px;
-        font-size: 16px;
-        margin-bottom: 20px;
-    }
-
-    .upload-hint {
-        color: #666;
-        font-size: 14px;
-        margin-top: 15px;
-    }
-
-    .submit-container {
-        text-align: center;
-        margin-top: 20px;
-    }
-
-    .submit-button {
-        padding: 12px 40px;
-        font-size: 16px;
-    }
-
-    .selected-file {
-        margin-top: 15px;
-        color: #28a745;
-        font-weight: 500;
-        display: none;  /* 初始状态隐藏 */
+    .result-container {
+        margin: 20px;
+        padding: 20px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- 上传区域 -->
 <div class="upload-container">
     <h4 class="mb-4">接口case生成</h4>
-    <form method="post" enctype="multipart/form-data" id="uploadForm">
-        {% csrf_token %}
-        <div class="upload-area">
-            <input type="file" name="single_file" id="single_file" style="display: none;">
-            <button type="button" class="btn btn-primary file-input-button" onclick="document.getElementById('single_file').click()">
-                选择文件
-            </button>
-            <div class="upload-hint">
-                拖拽文件到此区域或点击选择文件<br>
-                <span style="font-weight: bold; color: #dc3545;">(文件必须是从Metersphere导出的API json文件)</span>
-            </div>
-            <div id="selected-file" class="selected-file"></div>
-            <div id="uploadStatus" style="margin-top: 10px; color: #666;"></div>
-        </div>
-        <div class="submit-container">
-            <button type="submit" class="btn btn-success submit-button" id="submitBtn">上传文件</button>
-        </div>
-    </form>
+    <button class="btn btn-primary" onclick="showUploadModal()">上传API文件</button>
+    <p class="text-muted mt-2">支持从Metersphere导出的JSON格式API文件</p>
 </div>
 
 <!-- 接口选择界面 -->
-<div id="api-selection" style="display: none;">
+<div id="api-selection" class="api-selection-container" style="display: none;">
     <h3>选择要生成测试用例的接口</h3>
-    <!-- 测试用例生成规则（Markdown 编辑 + 预览） -->
+    <!-- 测试用例生成规则 -->
     <div class="mt-3" id="rule-editor-section">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-2">测试用例生成规则<span style="color: red; font-style: italic;">(如果你了解提示词工程, 可以自定义规则, 满足你的个性化需求)</span></h5>
@@ -158,25 +99,12 @@
     <button type="button" class="btn btn-primary" id="generateBtn">生成API测试用例</button>
 </div>
 
-<!-- 生成进度界面 -->
-<div id="generation-progress" style="display: none;">
-    <h3>正在生成API测试用例...</h3>
-    <div class="progress">
-        <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
-    </div>
-    <div id="progress-text">准备中...</div>
-    <div id="current-api" class="text-muted small mt-2"></div>
-</div>
-
 <!-- 生成结果界面 -->
-<div id="generation-result" style="display: none;">
+<div id="generation-result" class="result-container" style="display: none;">
     <h3>API测试用例生成完成</h3>
     <div id="result-message"></div>
-    <a id="download-link" href="#" class="btn btn-success">下载更新后的文件</a>
+    <a id="download-link" href="#" class="btn btn-success mt-3">下载更新后的文件</a>
 </div>
-
-<!-- 日志显示区域 -->
-<div id="live-logs" style="margin-top: 16px; height: 620px; border: 2px solid #28a745; border-radius: 4px; padding: 8px; overflow: auto; background: #000000; color: #ffffff; font-family: Menlo, Monaco, Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.5; display: none;"></div>
 {% endblock %}
 
 {% block extra_js %}

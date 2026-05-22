@@ -4,6 +4,7 @@
 {% block title %}TestBrain - Java源码分析{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'common_progress.css' %}">
 <style>
     .analyzer-container {
         margin: 20px;
@@ -74,39 +75,6 @@
         display: none;
     }
     
-    .loading {
-        display: none;
-        text-align: center;
-        margin-top: 20px;
-    }
-    
-    .spinner {
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #007bff;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    .error-message {
-        color: #dc3545;
-        margin-top: 10px;
-        display: none;
-    }
-    
-    .success-message {
-        color: #28a745;
-        margin-top: 10px;
-        display: none;
-    }
-    
     .analysis-result {
         margin-top: 20px;
         white-space: pre-wrap;
@@ -160,14 +128,14 @@
                 <button type="submit" class="submit-button" id="analyzeBtn">开始分析</button>
             </div>
         </form>
-        
-        <div class="loading" id="loadingIndicator">
-            <div class="spinner"></div>
-            <p>正在分析Java源码变更，请稍候...</p>
-        </div>
-        
-        <div class="error-message" id="errorMessage"></div>
-        <div class="success-message" id="successMessage"></div>
+    </div>
+
+    <!-- 分析结果展示区域 -->
+    <div id="analysis-result" class="result-container">
+        <h3>分析结果</h3>
+        <div id="result-message"></div>
+        <a id="download-link" href="#" class="btn btn-success mt-3">下载分析报告</a>
+        <div class="analysis-result" id="result-content"></div>
     </div>
 </div>
 {% endblock %}

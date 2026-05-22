@@ -171,10 +171,10 @@ function initFileUpload() {
                 </span>
             </div>
             <div class="file-actions">
-                <button class="retry-btn" style="display: none;" onclick="retryUpload('${item.dataset.id}')">
+                <button type="button" class="retry-btn" style="display: none;" onclick="retryUpload('${item.dataset.id}')">
                     <i class="fas fa-redo"></i>
                 </button>
-                <button class="remove-file-btn" onclick="removeFile('${item.dataset.id}')">
+                <button type="button" class="remove-file-btn" onclick="removeFile('${item.dataset.id}')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -408,6 +408,8 @@ function initFileUpload() {
         const index = uploadedFiles.findIndex(f => f.element.dataset.id === id);
         if (index !== -1) {
             const file = uploadedFiles[index];
+            const fileName = file.file?.name || '未知文件';
+            
             // 添加移除动画
             file.element.style.animation = 'slideOut 0.3s ease-out';
             setTimeout(() => {
@@ -418,9 +420,35 @@ function initFileUpload() {
                 if (uploadedFiles.length === 0) {
                     uploadArea?.classList.remove('has-files');
                 }
+                
+                // 从需求描述框中移除对应文件的内容
+                const inputText = document.getElementById('input-text');
+                if (inputText && inputText.value) {
+                    // 构建要移除的内容模式：## 文件名\n\n内容...\n\n---\n\n 或 文件末尾的内容
+                    const separator = '\n\n---\n\n';
+                    const contentPattern = new RegExp('(^|' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + ')## ' + escapeRegex(fileName) + '\\n\\n[\\s\\S]*?(?=' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '|$)', 'g');
+                    const originalValue = inputText.value;
+                    let newValue = inputText.value.replace(contentPattern, '');
+                    
+                    // 清理可能产生的多余分隔符
+                    newValue = newValue.replace(new RegExp('^' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), '');
+                    newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '$'), '');
+                    newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), separator);
+                    newValue = newValue.trim();
+                    
+                    if (newValue !== originalValue) {
+                        inputText.value = newValue;
+                        showNotification(`已从需求描述中移除文件 "${fileName}" 的内容`, 'info');
+                    }
+                }
             }, 300);
         }
     };
+    
+    // 辅助函数：转义正则表达式特殊字符
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
     
     // 清空所有文件
     window.clearAllFiles = function() {
@@ -431,6 +459,23 @@ function initFileUpload() {
             uploadedFiles.forEach(f => f.element.remove());
             uploadedFiles = [];
             uploadArea?.classList.remove('has-files');
+            
+            // 从需求描述框中移除所有来自文件的内容（以 ## 开头的段落）
+            const inputText = document.getElementById('input-text');
+            if (inputText && inputText.value) {
+                const separator = '\n\n---\n\n';
+                // 移除所有以 ## 文件名 开头的段落（包括分隔符）
+                let newValue = inputText.value.replace(new RegExp('(^|' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + ')## [^\\n]+\\n\\n[\\s\\S]*?(?=' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '|$)', 'g'), '');
+                newValue = newValue.replace(new RegExp('^' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), '');
+                newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '$'), '');
+                newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), separator);
+                newValue = newValue.trim();
+                
+                if (newValue !== inputText.value) {
+                    inputText.value = newValue;
+                    showNotification('已清空所有上传文件的内容', 'info');
+                }
+            }
         }, 300);
     };
 }

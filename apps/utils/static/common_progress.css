@@ -1,0 +1,855 @@
+/**
+ * 统一进度管理组件样式
+ * Common Progress Manager Styles
+ */
+
+/* 模态框基础样式 */
+.common-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.common-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.common-modal .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.common-modal .modal-content {
+    position: relative;
+    max-width: 800px;
+    width: 90%;
+    max-height: 80vh;
+    margin: 5% auto;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    transform: scale(0.9) translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.common-modal.active .modal-content {
+    transform: scale(1) translateY(0);
+}
+
+/* 模态框头部 */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-header .modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-header .modal-close:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.modal-header .modal-close:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 模态框主体 */
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(80vh - 140px);
+}
+
+/* 模态框底部 */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px 24px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+/* 按钮样式 */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #dee2e6;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 上传区域样式 */
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.upload-area:hover,
+.upload-area.drag-over {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-area .upload-icon {
+    font-size: 48px;
+    color: #667eea;
+    margin-bottom: 16px;
+}
+
+.upload-area .upload-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.upload-area .upload-hint {
+    font-size: 14px;
+    color: #6c757d;
+    margin: 0;
+}
+
+.upload-file-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* 上传文件列表 */
+.upload-files-list {
+    margin-top: 20px;
+}
+
+.upload-file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.upload-file-item .file-icon {
+    font-size: 24px;
+}
+
+.upload-file-item .file-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.upload-file-item .file-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #212529;
+}
+
+.upload-file-item .file-size {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.upload-file-item .file-status {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.upload-file-item .file-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 100%;
+    background: #e9ecef;
+    border-radius: 0 0 8px 8px;
+}
+
+.upload-file-item .file-progress .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 0 0 8px 8px;
+    transition: width 0.3s ease;
+}
+
+.upload-file-item .file-remove {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.upload-file-item .file-remove:hover {
+    background: #e9ecef;
+    color: #dc3545;
+}
+
+/* 状态样式 */
+.status-pending {
+    color: #6c757d;
+}
+
+.status-uploading {
+    color: #007bff;
+}
+
+.status-success {
+    color: #28a745;
+}
+
+.status-error {
+    color: #dc3545;
+}
+
+/* 重试按钮 */
+.retry-btn {
+    background: #007bff;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+    background: #0056b3;
+}
+
+/* 进度内容样式 */
+.progress-content {
+    max-width: 900px;
+}
+
+/* 总体进度区域 */
+.overall-progress-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.progress-info .progress-label {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.progress-info .progress-percentage {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.progress-bar-container {
+    height: 8px;
+    background: #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-bar-fill.completed {
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+}
+
+.progress-bar-fill.error {
+    background: linear-gradient(90deg, #dc3545 0%, #fd7e14 100%);
+}
+
+.progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.progress-meta .current-stage {
+    color: #212529;
+    font-weight: 500;
+}
+
+.progress-meta .remaining-time {
+    color: #6c757d;
+}
+
+/* 步骤区域 */
+.steps-section {
+    margin-bottom: 24px;
+}
+
+.steps-section h4 {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.steps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.progress-step.running {
+    background: rgba(102, 126, 234, 0.1);
+    border-left-color: #667eea;
+    animation: pulse 2s infinite;
+}
+
+.progress-step.completed {
+    background: rgba(40, 167, 69, 0.1);
+    border-left-color: #28a745;
+}
+
+.progress-step.error {
+    background: rgba(220, 53, 69, 0.1);
+    border-left-color: #dc3545;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+.progress-step .step-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 40px;
+}
+
+.progress-step .step-number {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6c757d;
+    background: #e9ecef;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-step.running .step-number,
+.progress-step.completed .step-number {
+    background: #667eea;
+    color: #ffffff;
+}
+
+.progress-step .step-icon i {
+    font-size: 18px;
+    color: #6c757d;
+}
+
+.progress-step.running .step-icon i,
+.progress-step.completed .step-icon i {
+    color: #667eea;
+}
+
+.progress-step.error .step-icon i {
+    color: #dc3545;
+}
+
+.progress-step .step-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progress-step .step-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #212529;
+}
+
+.progress-step .step-description {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.progress-step .step-details {
+    font-size: 12px;
+    color: #667eea;
+    font-style: italic;
+}
+
+.progress-step .step-status {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.progress-step .step-status .pending {
+    color: #6c757d;
+}
+
+.progress-step .step-status .running {
+    color: #667eea;
+}
+
+.progress-step .step-status .completed {
+    color: #28a745;
+}
+
+.progress-step .step-status .error {
+    color: #dc3545;
+}
+
+/* 日志区域 */
+.logs-section {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.logs-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logs-container {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.log-item {
+    display: flex;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.log-item .log-time {
+    color: #6c757d;
+    min-width: 80px;
+}
+
+.log-item .log-level {
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.log-item.debug .log-level {
+    color: #6c757d;
+}
+
+.log-item.info .log-level {
+    color: #007bff;
+}
+
+.log-item.warning .log-level {
+    color: #ffc107;
+}
+
+.log-item.error .log-level {
+    color: #dc3545;
+}
+
+.log-item .log-message {
+    color: #e9ecef;
+    flex: 1;
+    word-break: break-all;
+}
+
+/* 悬浮按钮 */
+.common-float-button {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    cursor: pointer;
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px) scale(0.9);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.common-float-button.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.common-float-button.completed {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+}
+
+.common-float-button:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+}
+
+.common-float-button .float-button-icon {
+    color: #ffffff;
+    font-size: 24px;
+}
+
+.common-float-button .float-button-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #dc3545;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.common-float-button.completed .float-button-badge {
+    background: #28a745;
+}
+
+.common-float-button .float-button-tooltip {
+    position: absolute;
+    right: calc(100% + 12px);
+    background: #343a40;
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+}
+
+.common-float-button:hover .float-button-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 通知容器 */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notification {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 300px;
+    max-width: 400px;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification.fade-out {
+    animation: fadeOut 0.3s ease;
+}
+
+@keyframes fadeOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.notification.success {
+    border-left: 4px solid #28a745;
+}
+
+.notification.success i {
+    color: #28a745;
+}
+
+.notification.error {
+    border-left: 4px solid #dc3545;
+}
+
+.notification.error i {
+    color: #dc3545;
+}
+
+.notification.warning {
+    border-left: 4px solid #ffc107;
+}
+
+.notification.warning i {
+    color: #ffc107;
+}
+
+.notification.info {
+    border-left: 4px solid #007bff;
+}
+
+.notification.info i {
+    color: #007bff;
+}
+
+.notification i {
+    font-size: 18px;
+}
+
+.notification span {
+    flex: 1;
+    font-size: 14px;
+    color: #212529;
+}
+
+.notification .notification-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.notification .notification-close:hover {
+    background: #f8f9fa;
+    color: #212529;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .common-modal .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        max-height: 90vh;
+    }
+
+    .modal-header {
+        padding: 16px 20px;
+    }
+
+    .modal-header h3 {
+        font-size: 16px;
+    }
+
+    .modal-body {
+        padding: 16px;
+        max-height: calc(90vh - 120px);
+    }
+
+    .modal-footer {
+        padding: 16px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+    .upload-area {
+        padding: 30px 16px;
+    }
+
+    .upload-area .upload-icon {
+        font-size: 36px;
+    }
+
+    .upload-file-item {
+        flex-wrap: wrap;
+    }
+
+    .upload-file-item .file-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .progress-step {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .progress-step .step-content {
+        width: 100%;
+    }
+
+    .log-item {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .log-item .log-time {
+        min-width: 60px;
+    }
+
+    .notification {
+        min-width: 280px;
+        max-width: 90%;
+    }
+
+    .common-float-button {
+        width: 56px;
+        height: 56px;
+        right: 16px;
+        bottom: 16px;
+    }
+}

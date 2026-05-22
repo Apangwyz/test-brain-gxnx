@@ -8,7 +8,7 @@ urlpatterns = [
     path('', views.prd_analyzer, name='prd_analyzer'),
     path('prd_analyzer/', views.prd_analyzer, name='prd_analyzer'),
 
-    
     # API 路由
-    
+    path('upload/', views.prd_upload_api, name='prd_upload'),
+    path('api/analyze/', views.prd_analyze_api, name='prd_analyze_api'),
 ]

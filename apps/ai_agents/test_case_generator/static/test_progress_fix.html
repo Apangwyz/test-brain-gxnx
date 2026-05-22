@@ -92,16 +92,47 @@
 </head>
 <body>
     <div class="test-section">
-        <h2><i class="fas fa-check-circle"></i> 进度窗口修复测试</h2>
+        <h2><i class="fas fa-check-circle"></i> 测试用例生成功能修复测试</h2>
         <p>测试目标：验证以下两个问题是否已修复：</p>
         <ul>
-            <li><strong>问题1：</strong>测试用例生成进度页面无法通过点击关闭按钮、缩小按钮或键盘快捷键关闭</li>
-            <li><strong>问题2：</strong>错误日志显示不完整，内容被截断</li>
+            <li><strong>问题1：</strong>错误日志显示不完整 - 步骤错误日志无法滚动查看完整内容</li>
+            <li><strong>问题2：</strong>文件删除与需求描述不同步 - 删除文件后描述内容残留</li>
         </ul>
+        <p><strong>新增功能：</strong>步骤错误日志支持折叠/展开和滚动查看，文件删除时自动同步清除描述内容</p>
     </div>
 
     <div class="test-section">
-        <h3>测试1：窗口交互功能</h3>
+        <h3>测试1：文件管理与需求描述同步</h3>
+        <div class="test-info">
+            <i class="fas fa-file-upload"></i>
+            <strong>提示：</strong>测试文件删除与需求描述的同步功能：
+            <ul>
+                <li>点击「添加测试文件」添加模拟上传的文件</li>
+                <li>文件内容会自动添加到需求描述框</li>
+                <li>点击文件右侧的删除按钮（×）应同步清除描述框中的对应内容</li>
+                <li>点击「清空所有文件」应清除描述框中所有来自文件的内容</li>
+            </ul>
+        </div>
+        
+        <button class="test-btn" onclick="addTestFile()">
+            <i class="fas fa-plus"></i> 添加测试文件
+        </button>
+        <button class="test-btn secondary" onclick="clearAllTestFiles()">
+            <i class="fas fa-trash"></i> 清空所有文件
+        </button>
+        
+        <!-- 模拟文件列表 -->
+        <div id="test-file-list" class="mt-3"></div>
+        
+        <!-- 模拟需求描述框 -->
+        <div class="mt-4">
+            <label>需求描述：</label>
+            <textarea id="input-text" class="form-control" rows="6" placeholder="需求描述内容将显示在这里..."></textarea>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>测试2：窗口交互功能</h3>
         <div class="test-info">
             <i class="fas fa-keyboard"></i>
             <strong>提示：</strong>打开进度窗口后，您可以：
@@ -120,6 +151,12 @@
         </button>
         <button class="test-btn danger" onclick="showProgressWithLongError()">
             <i class="fas fa-bug"></i> 显示带长错误日志的窗口
+        </button>
+        <button class="test-btn secondary" onclick="simulateRestart()">
+            <i class="fas fa-redo"></i> 模拟页面重启
+        </button>
+        <button class="test-btn secondary" onclick="clearStorage()">
+            <i class="fas fa-trash"></i> 清除存储状态
         </button>
     </div>
 
@@ -276,7 +313,7 @@ Caused by: ConnectionError: 无法连接到 Milvus 服务
                     steps: [
                         { stage: 'initializing', title: '初始化', description: '准备生成环境...', status: 'completed' },
                         { stage: 'analyzing', title: '分析需求', description: '正在理解您的需求描述...', status: 'completed' },
-                        { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'error', details: '向量数据库连接失败' },
+                        { stage: 'retrieving', title: '检索知识库', description: '从知识库中检索相关信息...', status: 'error', details: longError },
                         { stage: 'generating', title: '生成测试用例', description: 'AI 正在生成测试用例...', status: 'pending' },
                         { stage: 'validating', title: '验证结果', description: '验证生成的测试用例...', status: 'pending' },
                         { stage: 'completed', title: '完成', description: '测试用例生成完成！', status: 'pending' }
@@ -364,6 +401,154 @@ Caused by: ConnectionError: 无法连接到 Milvus 服务
             };
             document.head.appendChild(script);
         });
+
+        // 模拟页面重启（测试状态恢复）
+        function simulateRestart() {
+            log('模拟页面重启...', 'info');
+            // 重新创建进度管理器实例（模拟页面刷新）
+            progressManager = null;
+            // 隐藏所有模态框和悬浮按钮
+            const modal = document.getElementById('generation-progress-modal');
+            if (modal) {
+                modal.remove();
+            }
+            const floatBtn = document.getElementById('progress-float-button');
+            if (floatBtn) {
+                floatBtn.remove();
+            }
+            // 重新初始化进度管理器（模拟页面加载时的恢复）
+            setTimeout(() => {
+                progressManager = new GenerationProgressManager();
+                progressManager.onComplete(function(result) {
+                    log('任务完成回调触发', 'success');
+                });
+                progressManager.onError(function(message) {
+                    log('任务错误回调触发：' + message.substring(0, 100) + (message.length > 100 ? '...' : ''), 'error');
+                });
+                log('进度管理器已重新初始化，状态已从本地存储恢复', 'success');
+            }, 500);
+        }
+
+        // 清除本地存储状态
+        function clearStorage() {
+            localStorage.removeItem('generationProgress');
+            log('本地存储状态已清除', 'info');
+            // 如果有进度管理器实例，也清除其内部状态
+            if (progressManager) {
+                progressManager.clearStorage();
+            }
+        }
+
+        // 测试文件管理功能
+        let testFiles = [];
+        let fileIdCounter = 0;
+
+        // 模拟文件内容
+        const fileContents = {
+            '需求文档.docx': '这是需求文档的内容，包含项目的功能需求描述。\n\n功能需求：\n1. 用户登录\n2. 数据管理\n3. 报表生成',
+            '技术规格.md': '# 技术规格文档\n\n## 系统架构\n采用微服务架构，包含以下模块：\n- 用户服务\n- 订单服务\n- 支付服务',
+            '测试说明.txt': '测试说明：\n- 测试环境：Windows 10\n- 浏览器：Chrome 90+\n- 测试数据：模拟数据',
+            '设计文档.pdf': '设计文档内容：\n\n## 界面设计\n- 首页布局：三栏式\n- 配色方案：蓝色主题\n- 响应式设计'
+        };
+
+        function addTestFile() {
+            const fileList = document.getElementById('test-file-list');
+            const fileNames = ['需求文档.docx', '技术规格.md', '测试说明.txt', '设计文档.pdf'];
+            const randomName = fileNames[Math.floor(Math.random() * fileNames.length)];
+            const fileId = 'test-file-' + (++fileIdCounter);
+            
+            const fileItem = document.createElement('div');
+            fileItem.className = 'uploaded-file-item success';
+            fileItem.dataset.id = fileId;
+            fileItem.innerHTML = `
+                <div class="file-info">
+                    <span class="file-icon fas fa-file text-gray"></span>
+                    <div class="file-details">
+                        <span class="file-name">${randomName}</span>
+                        <span class="file-meta">2.5 KB · 刚刚</span>
+                    </div>
+                    <span class="file-status success">
+                        <span class="status-icon"><i class="fas fa-check-circle"></i></span>
+                        <span class="status-text">上传成功</span>
+                    </span>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="remove-file-btn" onclick="removeTestFile('${fileId}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            fileList.appendChild(fileItem);
+            
+            // 模拟将文件内容添加到需求描述框
+            const inputText = document.getElementById('input-text');
+            const fileContent = fileContents[randomName] || '这是文件内容...';
+            if (inputText) {
+                const separator = inputText.value ? '\n\n---\n\n' : '';
+                inputText.value += separator + `## ${randomName}\n\n` + fileContent;
+            }
+            
+            testFiles.push({ id: fileId, element: fileItem, name: randomName });
+            log(`已添加测试文件: ${randomName}，内容已同步到需求描述框`, 'success');
+        }
+
+        function removeTestFile(fileId) {
+            const index = testFiles.findIndex(f => f.id === fileId);
+            if (index !== -1) {
+                const file = testFiles[index];
+                file.element.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    file.element.remove();
+                    
+                    // 从需求描述框中移除对应文件的内容
+                    const inputText = document.getElementById('input-text');
+                    if (inputText && inputText.value && file.name) {
+                        const fileName = file.name;
+                        const contentPattern = new RegExp(`(^|\\n\\n---\\n\\n)## ${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\n[\\s\\S]*?(?=\\n\\n---\\n\\n|$)`, 'g');
+                        let newValue = inputText.value.replace(contentPattern, '');
+                        newValue = newValue.replace(/^\n\n---\n\n/, '');
+                        newValue = newValue.replace(/\n\n---\n\n$/, '');
+                        newValue = newValue.replace(/\n\n---\n\n---\n\n/g, '\n\n---\n\n');
+                        newValue = newValue.trim();
+                        
+                        if (newValue !== inputText.value) {
+                            inputText.value = newValue;
+                            log(`已从需求描述框中移除文件 "${fileName}" 的内容`, 'info');
+                        }
+                    }
+                    
+                    testFiles.splice(index, 1);
+                    log('文件删除成功', 'success');
+                }, 300);
+            }
+        }
+
+        function clearAllTestFiles() {
+            testFiles.forEach(f => {
+                f.element.style.animation = 'slideOut 0.3s ease-out';
+            });
+            setTimeout(() => {
+                testFiles.forEach(f => f.element.remove());
+                testFiles = [];
+                
+                // 清空需求描述框中所有来自文件的内容
+                const inputText = document.getElementById('input-text');
+                if (inputText && inputText.value) {
+                    let newValue = inputText.value.replace(/(^|\n\n---\n\n)## [^\n]+\n\n[\s\S]*?(?=\n\n---\n\n|$)/g, '');
+                    newValue = newValue.replace(/^\n\n---\n\n/, '');
+                    newValue = newValue.replace(/\n\n---\n\n$/, '');
+                    newValue = newValue.replace(/\n\n---\n\n---\n\n/g, '\n\n---\n\n');
+                    newValue = newValue.trim();
+                    
+                    if (newValue !== inputText.value) {
+                        inputText.value = newValue;
+                    }
+                }
+                
+                log('所有测试文件已清空，需求描述框内容已同步清除', 'info');
+            }, 300);
+        }
 
         // 键盘事件监听提示
         document.addEventListener('keydown', function(event) {
