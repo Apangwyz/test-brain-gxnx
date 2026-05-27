@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统管理功能测试</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .card {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            border: none;
+            border-radius: 12px;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box .fa-search {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .search-box input {
+            padding-left: 36px;
+        }
+        
+        .system-row {
+            transition: all 0.3s;
+        }
+        
+        .system-row:hover {
+            background: #f8f9fa;
+            transform: translateX(4px);
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .modal-header .btn-close {
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <!-- 标题 -->
+                <div class="text-center mb-6">
+                    <h1 class="text-white mb-2">系统归属管理功能</h1>
+                    <p class="text-white opacity-80">测试系统管理模块的新增、编辑、查询和删除功能</p>
+                </div>
+
+                <!-- 统计卡片 -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-white p-4">
+                            <div class="text-center">
+                                <i class="fa-solid fa-server text-primary mb-2" style="font-size: 32px;"></i>
+                                <p class="text-muted text-sm">总系统数</p>
+                                <p class="h3 font-bold" id="stats-total">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-white p-4">
+                            <div class="text-center">
+                                <i class="fa-solid fa-check-circle text-success mb-2" style="font-size: 32px;"></i>
+                                <p class="text-muted text-sm">已启用</p>
+                                <p class="h3 font-bold" id="stats-active">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-white p-4">
+                            <div class="text-center">
+                                <i class="fa-solid fa-circle-xmark text-warning mb-2" style="font-size: 32px;"></i>
+                                <p class="text-muted text-sm">已停用</p>
+                                <p class="h3 font-bold" id="stats-inactive">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作栏 -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="search-box">
+                                    <i class="fa-solid fa-search text-muted"></i>
+                                    <input type="text" class="form-control" id="search-input" placeholder="搜索系统名称或编码..." onkeyup="handleSearch()">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="status-filter" onchange="handleFilter()">
+                                    <option value="">全部状态</option>
+                                    <option value="active">已启用</option>
+                                    <option value="inactive">已停用</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                                    <i class="fa-solid fa-filter-slash"></i> 清除筛选
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-primary w-100" onclick="openAddModal()">
+                                    <i class="fa-solid fa-plus mr-2"></i> 新增系统
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统列表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fa-solid fa-network-wired mr-2"></i>系统列表</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="system-list" class="space-y-2">
+                            <!-- 系统数据将动态加载 -->
+                        </div>
+                        <div id="empty-state" class="text-center py-8">
+                            <i class="fa-solid fa-server text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">暂无系统数据</p>
+                            <button class="btn btn-primary mt-2" onclick="openAddModal()">
+                                <i class="fa-solid fa-plus mr-2"></i> 新增系统
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 功能验证区 -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5><i class="fa-solid fa-check-square mr-2"></i>功能验证</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-success w-100 mb-2" onclick="testCreateSystem()">
+                                    <i class="fa-solid fa-plus-circle mr-2"></i>测试新增系统
+                                </button>
+                                <button class="btn btn-outline-info w-100 mb-2" onclick="testSearchSystem()">
+                                    <i class="fa-solid fa-search mr-2"></i>测试搜索功能
+                                </button>
+                                <button class="btn btn-outline-warning w-100" onclick="testFilterSystem()">
+                                    <i class="fa-solid fa-filter mr-2"></i>测试筛选功能
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-primary w-100 mb-2" onclick="testUpdateSystem()">
+                                    <i class="fa-solid fa-edit mr-2"></i>测试编辑系统
+                                </button>
+                                <button class="btn btn-outline-danger w-100 mb-2" onclick="testDeleteSystem()">
+                                    <i class="fa-solid fa-trash mr-2"></i>测试删除系统
+                                </button>
+                                <button class="btn btn-outline-secondary w-100" onclick="loadMockData()">
+                                    <i class="fa-solid fa-database mr-2"></i>加载模拟数据
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 测试结果 -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5><i class="fa-solid fa-terminal mr-2"></i>测试结果</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="test-results" class="bg-dark text-green-400 p-4 rounded overflow-auto" style="max-height: 300px;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑弹窗 -->
+    <div class="modal fade" id="system-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-title">新增系统</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="system-form">
+                        <input type="hidden" id="system-id">
+                        <div class="mb-3">
+                            <label class="form-label">系统名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="system-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">系统编码 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="system-code" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">系统描述</label>
+                            <textarea class="form-control" id="system-description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" id="system-status">
+                                <option value="active">启用</option>
+                                <option value="inactive">停用</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSystem()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal fade" id="delete-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger">
+                    <h5 class="modal-title text-white">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除系统 <span id="delete-name" class="font-bold"></span> 吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 模拟数据存储
+        let systems = [];
+        let nextId = 1;
+        let deleteId = null;
+
+        // 初始化模拟数据
+        function loadMockData() {
+            systems = [
+                { id: 1, name: '用户中心系统', code: 'UC-SYS', description: '负责用户注册、登录、权限管理', status: 'active', created_at: '2024-01-15T10:30:00' },
+                { id: 2, name: '订单管理系统', code: 'OM-SYS', description: '处理订单创建、支付、发货流程', status: 'active', created_at: '2024-01-18T14:20:00' },
+                { id: 3, name: '数据分析平台', code: 'DA-PLAT', description: '提供数据报表和可视化分析', status: 'inactive', created_at: '2024-02-01T09:00:00' },
+                { id: 4, name: '消息推送服务', code: 'MSG-SVC', description: '负责系统消息和通知推送', status: 'active', created_at: '2024-02-10T11:45:00' },
+                { id: 5, name: '文件存储系统', code: 'FS-SYS', description: '管理文件上传、存储和下载', status: 'active', created_at: '2024-02-15T16:30:00' },
+            ];
+            nextId = 6;
+            renderSystems(systems);
+            updateStats();
+            logResult('已加载5条模拟系统数据');
+        }
+
+        // 渲染系统列表
+        function renderSystems(systemList) {
+            const container = document.getElementById('system-list');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (systemList.length === 0) {
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            container.innerHTML = systemList.map(system => `
+                <div class="system-row p-3 border rounded-lg" data-id="${system.id}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="font-bold">${system.name}</div>
+                            <div class="text-sm text-muted">${system.code}</div>
+                        </div>
+                        <div class="col-md-4">${system.description || '-'}</div>
+                        <div class="col-md-2">
+                            <span class="status-badge ${system.status === 'active' ? 'status-active' : 'status-inactive'}">
+                                ${system.status === 'active' ? '已启用' : '已停用'}
+                            </span>
+                        </div>
+                        <div class="col-md-3 text-right">
+                            <button class="btn btn-sm btn-outline-primary mr-1" onclick="openEditModal(${system.id})">
+                                <i class="fa-solid fa-edit"></i> 编辑
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal(${system.id}, '${system.name}')">
+                                <i class="fa-solid fa-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            const total = systems.length;
+            const active = systems.filter(s => s.status === 'active').length;
+            const inactive = systems.filter(s => s.status === 'inactive').length;
+            
+            document.getElementById('stats-total').textContent = total;
+            document.getElementById('stats-active').textContent = active;
+            document.getElementById('stats-inactive').textContent = inactive;
+        }
+
+        // 搜索处理
+        function handleSearch() {
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            const filtered = systems.filter(s => 
+                s.name.toLowerCase().includes(keyword) || 
+                s.code.toLowerCase().includes(keyword)
+            );
+            renderSystems(filtered);
+        }
+
+        // 筛选处理
+        function handleFilter() {
+            const status = document.getElementById('status-filter').value;
+            if (!status) {
+                renderSystems(systems);
+                return;
+            }
+            const filtered = systems.filter(s => s.status === status);
+            renderSystems(filtered);
+        }
+
+        // 清除筛选
+        function clearFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('status-filter').value = '';
+            renderSystems(systems);
+        }
+
+        // 打开新增弹窗
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = '新增系统';
+            document.getElementById('system-id').value = '';
+            document.getElementById('system-name').value = '';
+            document.getElementById('system-code').value = '';
+            document.getElementById('system-description').value = '';
+            document.getElementById('system-status').value = 'active';
+            new bootstrap.Modal(document.getElementById('system-modal')).show();
+        }
+
+        // 打开编辑弹窗
+        function openEditModal(id) {
+            const system = systems.find(s => s.id === id);
+            if (!system) return;
+            
+            document.getElementById('modal-title').textContent = '编辑系统';
+            document.getElementById('system-id').value = system.id;
+            document.getElementById('system-name').value = system.name;
+            document.getElementById('system-code').value = system.code;
+            document.getElementById('system-description').value = system.description;
+            document.getElementById('system-status').value = system.status;
+            new bootstrap.Modal(document.getElementById('system-modal')).show();
+        }
+
+        // 打开删除弹窗
+        function openDeleteModal(id, name) {
+            deleteId = id;
+            document.getElementById('delete-name').textContent = name;
+            new bootstrap.Modal(document.getElementById('delete-modal')).show();
+        }
+
+        // 保存系统
+        function saveSystem() {
+            const id = document.getElementById('system-id').value;
+            const name = document.getElementById('system-name').value.trim();
+            const code = document.getElementById('system-code').value.trim();
+            const description = document.getElementById('system-description').value.trim();
+            const status = document.getElementById('system-status').value;
+            
+            if (!name || !code) {
+                alert('系统名称和编码不能为空');
+                return;
+            }
+            
+            // 验证编码唯一性
+            const exists = systems.find(s => s.code === code && s.id != id);
+            if (exists) {
+                alert('系统编码已存在');
+                return;
+            }
+            
+            if (id) {
+                // 更新
+                const index = systems.findIndex(s => s.id == id);
+                if (index !== -1) {
+                    systems[index] = {
+                        ...systems[index],
+                        name,
+                        code,
+                        description,
+                        status
+                    };
+                    logResult(`已更新系统: ${name}`);
+                }
+            } else {
+                // 新增
+                systems.push({
+                    id: nextId++,
+                    name,
+                    code,
+                    description,
+                    status,
+                    created_at: new Date().toISOString()
+                });
+                logResult(`已新增系统: ${name}`);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('system-modal')).hide();
+            clearFilters();
+            updateStats();
+        }
+
+        // 删除系统
+        function confirmDelete() {
+            if (!deleteId) return;
+            
+            const index = systems.findIndex(s => s.id === deleteId);
+            if (index !== -1) {
+                const name = systems[index].name;
+                systems.splice(index, 1);
+                logResult(`已删除系统: ${name}`);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('delete-modal')).hide();
+            clearFilters();
+            updateStats();
+            deleteId = null;
+        }
+
+        // 测试功能
+        function testCreateSystem() {
+            const testName = '测试系统_' + Date.now();
+            const testCode = 'TEST-' + Date.now().toString(36).toUpperCase();
+            
+            systems.push({
+                id: nextId++,
+                name: testName,
+                code: testCode,
+                description: '测试系统描述',
+                status: 'active',
+                created_at: new Date().toISOString()
+            });
+            
+            clearFilters();
+            updateStats();
+            logResult(`✅ 测试新增成功: ${testName}`);
+        }
+
+        function testSearchSystem() {
+            document.getElementById('search-input').value = '用户';
+            handleSearch();
+            logResult('✅ 测试搜索功能: 搜索"用户"');
+        }
+
+        function testFilterSystem() {
+            document.getElementById('status-filter').value = 'inactive';
+            handleFilter();
+            logResult('✅ 测试筛选功能: 筛选已停用系统');
+        }
+
+        function testUpdateSystem() {
+            if (systems.length === 0) {
+                logResult('❌ 测试编辑失败: 没有系统数据');
+                return;
+            }
+            
+            const system = systems[0];
+            system.name = system.name + '_已编辑';
+            system.description = '已更新描述';
+            
+            clearFilters();
+            logResult(`✅ 测试编辑成功: ${system.name}`);
+        }
+
+        function testDeleteSystem() {
+            if (systems.length === 0) {
+                logResult('❌ 测试删除失败: 没有系统数据');
+                return;
+            }
+            
+            const deleted = systems.pop();
+            clearFilters();
+            updateStats();
+            logResult(`✅ 测试删除成功: ${deleted.name}`);
+        }
+
+        // 记录测试结果
+        function logResult(message) {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString('zh-CN');
+            results.textContent = `[${timestamp}] ${message}\n` + results.textContent;
+        }
+
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMockData();
+            logResult('系统管理功能测试页面已加载');
+        });
+    </script>
+</body>
+</html>

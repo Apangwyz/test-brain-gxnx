@@ -15,4 +15,23 @@ urlpatterns = [
     path('api/knowledge-list/', views.knowledge_list, name='knowledge_list'),
     path('api/search-knowledge/', views.search_knowledge, name='search_knowledge'),   
     path('api/stream-logs/', stream_logs, name='stream_logs'),
+    
+    # 系统管理API
+    path('system/', views.system_management, name='system_management'),
+    path('api/systems/', views.system_list, name='system_list'),
+    path('api/systems/<int:system_id>/', views.system_detail, name='system_detail'),
+    path('api/systems/search/', views.system_search, name='system_search'),
+    path('api/systems/stats/', views.system_stats, name='system_stats'),
+    path('api/systems/<int:system_id>/related/', views.get_system_related_data, name='system_related_data'),
+    
+    # 测试计划API
+    path('api/test-plans/', views.test_plan_list, name='test_plan_list'),
+    path('api/test-plans/<int:plan_id>/', views.test_plan_detail, name='test_plan_detail'),
+    
+    # 需求文档API
+    path('api/requirements/', views.requirement_doc_list, name='requirement_doc_list'),
+    path('api/requirements/<int:doc_id>/', views.requirement_doc_detail, name='requirement_doc_detail'),
+    
+    # 测试用例系统关联API
+    path('api/testcases/<int:case_id>/system/', views.update_testcase_system, name='update_testcase_system'),
     ] 

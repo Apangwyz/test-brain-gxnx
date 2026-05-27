@@ -56,6 +56,14 @@ class TestCase(models.Model):
     bu = models.CharField(max_length=50, choices=BU_CHOICES, blank=True, verbose_name='BU')
     feature = models.CharField(max_length=100, blank=True, verbose_name='Feature')
     priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, blank=True, verbose_name='Priority')
+    system = models.ForeignKey(
+        'System', 
+        on_delete=models.CASCADE, 
+        related_name='test_cases',
+        verbose_name="所属系统",
+        null=True,
+        blank=True
+    )
     
     def __str__(self):
         return (
@@ -106,3 +114,125 @@ class KnowledgeBase(models.Model):
     class Meta:
         verbose_name = "知识库"
         verbose_name_plural = "知识库" 
+
+
+class System(models.Model):
+    """系统模型 - 用于管理外围系统清单"""
+    SYSTEM_STATUS_CHOICES = [
+        ('active', '启用'),
+        ('inactive', '停用'),
+    ]
+    
+    name = models.CharField(max_length=100, unique=True, verbose_name="系统名称")
+    code = models.CharField(max_length=50, unique=True, verbose_name="系统编码")
+    description = models.TextField(blank=True, verbose_name="系统描述")
+    status = models.CharField(
+        max_length=20, 
+        choices=SYSTEM_STATUS_CHOICES, 
+        default='active',
+        verbose_name="状态"
+    )
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        related_name='created_systems',
+        verbose_name="创建人",
+        null=True,
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name = "系统"
+        verbose_name_plural = "系统管理"
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['code']),
+            models.Index(fields=['status']),
+        ]
+
+
+class TestPlan(models.Model):
+    """测试计划模型"""
+    PLAN_STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('active', '执行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+    ]
+    
+    title = models.CharField(max_length=200, verbose_name="测试计划标题")
+    description = models.TextField(blank=True, verbose_name="测试计划描述")
+    system = models.ForeignKey(
+        System, 
+        on_delete=models.CASCADE, 
+        related_name='test_plans',
+        verbose_name="所属系统",
+        null=True,
+        blank=True
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=PLAN_STATUS_CHOICES, 
+        default='draft',
+        verbose_name="状态"
+    )
+    test_cases = models.ManyToManyField(
+        'TestCase', 
+        related_name='test_plans',
+        blank=True,
+        verbose_name="关联测试用例"
+    )
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        related_name='created_testplans',
+        verbose_name="创建人",
+        null=True,
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        verbose_name = "测试计划"
+        verbose_name_plural = "测试计划"
+
+
+class RequirementDoc(models.Model):
+    """需求文档模型"""
+    title = models.CharField(max_length=200, verbose_name="文档标题")
+    content = models.TextField(verbose_name="文档内容")
+    system = models.ForeignKey(
+        System, 
+        on_delete=models.CASCADE, 
+        related_name='requirements',
+        verbose_name="所属系统",
+        null=True,
+        blank=True
+    )
+    file_path = models.CharField(max_length=500, blank=True, verbose_name="文件路径")
+    uploaded_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        related_name='uploaded_requirements',
+        verbose_name="上传人",
+        null=True,
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        verbose_name = "需求文档"
+        verbose_name_plural = "需求文档"
