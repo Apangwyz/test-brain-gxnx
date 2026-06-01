@@ -8,12 +8,19 @@ from django.apps import apps
 
 class KnowledgeService:
     """知识库服务，整合向量存储和嵌入模型"""
-    
+
     def __init__(self):
-        config = apps.get_app_config('knowledge')
-        self.vector_store = config.vector_store
-        self.embedder = config.embedder
         self.logger = get_logger(self.__class__.__name__)
+
+    @property
+    def vector_store(self):
+        config = apps.get_app_config('knowledge')
+        return config.vector_store
+
+    @property
+    def embedder(self):
+        config = apps.get_app_config('knowledge')
+        return config.embedder
         
     def add_knowledge(self, title: str, content: str) -> int:
         """添加知识到知识库"""

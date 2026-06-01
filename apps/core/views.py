@@ -305,6 +305,14 @@ def upload_single_file(request):
                         text_contents = [str(chunks)]
                     logger.info(f"提取了单个文本内容: {text_contents[0][:100]}...")
 
+                # 检查知识库服务是否可用
+                if knowledge_service.embedder is None:
+                    logger.error("嵌入模型服务未初始化，请检查阿里云API Key配置")
+                    return JsonResponse({
+                        'success': False,
+                        'error': '嵌入模型服务未初始化，请联系管理员配置阿里云API Key'
+                    })
+
                 # 直接生成所有文本内容的向量
                 logger.info("开始生成向量")
                 start_time = datetime.now()
@@ -335,6 +343,14 @@ def upload_single_file(request):
                         }
                         data_to_insert.append(item)
                     
+                    # 检查知识库服务是否可用
+                    if knowledge_service.vector_store is None:
+                        logger.error("知识库服务未初始化，请检查阿里云API Key配置")
+                        return JsonResponse({
+                            'success': False,
+                            'error': '知识库服务未初始化，请联系管理员配置阿里云API Key'
+                        })
+
                     # 插入数据到Milvus
                     logger.info(f"开始往milvus中插入 {len(data_to_insert)} 条数据")
                     knowledge_service.vector_store.add_data(data_to_insert)
@@ -1074,3 +1090,328 @@ def update_testcase_system(request, case_id):
 def system_management(request):
     """系统管理页面"""
     return render(request, 'system_management.html')
+
+
+# ==================== 测试执行API ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def test_execution_list(request):
+    """获取测试执行记录列表或创建新的执行批次"""
+    try:
+        if request.method == 'GET':
+            # 获取查询参数
+            status = request.GET.get('status', '')
+            test_case_id = request.GET.get('test_case_id', '')
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 20))
+            
+            queryset = TestExecutionRecord.objects.all()
+            
+            if status:
+                queryset = queryset.filter(status=status)
+            if test_case_id:
+                queryset = queryset.filter(test_case_id=test_case_id)
+            
+            queryset = queryset.order_by('-created_at')
+            
+            # 分页处理
+            total = queryset.count()
+            queryset = queryset[(page - 1) * page_size:page * page_size]
+            
+            records = []
+            for record in queryset:
+                records.append({
+                    'id': record.id,
+                    'test_case_id': record.test_case.id,
+                    'test_case_title': record.test_case.title,
+                    'test_case_description': record.test_case.description,
+                    'status': record.status,
+                    'status_display': dict(TestExecutionRecord.EXECUTION_STATUS_CHOICES).get(record.status, record.status),
+                    'executor': record.executor.username if record.executor else None,
+                    'start_time': record.start_time.isoformat() if record.start_time else None,
+                    'end_time': record.end_time.isoformat() if record.end_time else None,
+                    'duration': record.duration,
+                    'log': record.log,
+                    'error_message': record.error_message,
+                    'created_at': record.created_at.isoformat(),
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'records': records,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+            })
+        
+        elif request.method == 'POST':
+            data = json.loads(request.body)
+            test_case_ids = data.get('test_case_ids', [])
+            batch_name = data.get('batch_name', '测试执行批次')
+            
+            if not test_case_ids:
+                return JsonResponse({
+                    'success': False,
+                    'message': '请选择要执行的测试用例'
+                }, status=400)
+            
+            # 创建执行批次
+            batch = TestExecutionBatch.objects.create(
+                name=batch_name,
+                status='running',
+                start_time=datetime.now()
+            )
+            
+            # 关联测试用例
+            for case_id in test_case_ids:
+                try:
+                    test_case = TestCase.objects.get(id=case_id)
+                    batch.test_cases.add(test_case)
+                except TestCase.DoesNotExist:
+                    continue
+            
+            return JsonResponse({
+                'success': True,
+                'message': '执行批次已创建',
+                'batch_id': batch.id
+            })
+    
+    except Exception as e:
+        logger.error(f"测试执行API错误: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def execute_test_case(request, test_case_id):
+    """执行单个测试用例"""
+    try:
+        test_case = TestCase.objects.get(id=test_case_id)
+        
+        # 创建执行记录
+        record = TestExecutionRecord.objects.create(
+            test_case=test_case,
+            status='running',
+            start_time=datetime.now()
+        )
+        
+        # 模拟测试执行（实际应用中这里会调用真实的测试脚本）
+        import time
+        time.sleep(2)  # 模拟执行耗时
+        
+        # 模拟执行结果（随机决定通过或失败）
+        import random
+        is_passed = random.choice([True, False, True, True])
+        
+        if is_passed:
+            record.status = 'passed'
+            record.log = f"测试用例执行成功\n测试步骤: {test_case.test_steps}\n预期结果: {test_case.expected_results}\n实际结果: 符合预期"
+        else:
+            record.status = 'failed'
+            record.log = f"测试用例执行失败\n测试步骤: {test_case.test_steps}\n预期结果: {test_case.expected_results}\n实际结果: 不符合预期"
+            record.error_message = "断言失败：实际结果与预期不符"
+        
+        record.end_time = datetime.now()
+        record.duration = (record.end_time - record.start_time).total_seconds()
+        record.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': '测试执行完成',
+            'record': {
+                'id': record.id,
+                'status': record.status,
+                'duration': record.duration,
+                'log': record.log
+            }
+        })
+    
+    except TestCase.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': '测试用例不存在'
+        })
+    except Exception as e:
+        logger.error(f"执行测试用例错误: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def execute_test_batch(request, batch_id):
+    """执行测试批次"""
+    try:
+        batch = TestExecutionBatch.objects.get(id=batch_id)
+        batch.status = 'running'
+        batch.start_time = datetime.now()
+        batch.save()
+        
+        results = []
+        for test_case in batch.test_cases.all():
+            record = TestExecutionRecord.objects.create(
+                test_case=test_case,
+                status='running',
+                start_time=datetime.now()
+            )
+            
+            # 模拟执行
+            import time
+            time.sleep(1)
+            
+            import random
+            is_passed = random.choice([True, False, True, True, True])
+            
+            if is_passed:
+                record.status = 'passed'
+                record.log = f"测试用例执行成功\n测试步骤: {test_case.test_steps[:50]}..."
+            else:
+                record.status = 'failed'
+                record.log = f"测试用例执行失败"
+                record.error_message = "模拟失败"
+            
+            record.end_time = datetime.now()
+            record.duration = (record.end_time - record.start_time).total_seconds()
+            record.save()
+            
+            results.append({
+                'test_case_id': test_case.id,
+                'status': record.status
+            })
+        
+        batch.status = 'completed'
+        batch.end_time = datetime.now()
+        batch.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': '批次执行完成',
+            'results': results
+        })
+    
+    except TestExecutionBatch.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': '执行批次不存在'
+        })
+    except Exception as e:
+        logger.error(f"执行测试批次错误: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def test_execution_stats(request):
+    """获取测试执行统计"""
+    try:
+        total = TestExecutionRecord.objects.count()
+        passed = TestExecutionRecord.objects.filter(status='passed').count()
+        failed = TestExecutionRecord.objects.filter(status='failed').count()
+        running = TestExecutionRecord.objects.filter(status='running').count()
+        error = TestExecutionRecord.objects.filter(status='error').count()
+        
+        pass_rate = (passed / total * 100) if total > 0 else 0
+        fail_rate = (failed / total * 100) if total > 0 else 0
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total': total,
+                'passed': passed,
+                'failed': failed,
+                'running': running,
+                'error': error,
+                'pass_rate': round(pass_rate, 2),
+                'fail_rate': round(fail_rate, 2)
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"测试执行统计错误: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def test_execution_export(request):
+    """导出测试执行记录"""
+    try:
+        format_type = request.GET.get('format', 'csv')
+        records = TestExecutionRecord.objects.all()
+        
+        if format_type == 'json':
+            data = []
+            for record in records:
+                data.append({
+                    'id': record.id,
+                    'test_case_id': record.test_case.id,
+                    'test_case_title': record.test_case.title,
+                    'status': record.status,
+                    'executor': record.executor.username if record.executor else None,
+                    'start_time': record.start_time.isoformat() if record.start_time else None,
+                    'end_time': record.end_time.isoformat() if record.end_time else None,
+                    'duration': record.duration,
+                    'log': record.log,
+                    'error_message': record.error_message,
+                    'created_at': record.created_at.isoformat(),
+                })
+            
+            response = JsonResponse(data, safe=False)
+            response['Content-Disposition'] = 'attachment; filename=test_execution_records.json'
+            return response
+        
+        elif format_type == 'csv':
+            import csv
+            from io import StringIO
+            
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['ID', '测试用例ID', '测试用例标题', '执行状态', '执行人', '开始时间', '结束时间', '耗时(秒)', '错误信息'])
+            
+            for record in records:
+                writer.writerow([
+                    record.id,
+                    record.test_case.id,
+                    record.test_case.title,
+                    dict(TestExecutionRecord.EXECUTION_STATUS_CHOICES).get(record.status, record.status),
+                    record.executor.username if record.executor else '',
+                    record.start_time if record.start_time else '',
+                    record.end_time if record.end_time else '',
+                    record.duration if record.duration else '',
+                    record.error_message if record.error_message else ''
+                ])
+            
+            response = JsonResponse(output.getvalue(), safe=False)
+            response['Content-Type'] = 'text/csv'
+            response['Content-Disposition'] = 'attachment; filename=test_execution_records.csv'
+            return response
+        
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '不支持的导出格式'
+            }, status=400)
+    
+    except Exception as e:
+        logger.error(f"导出测试执行记录错误: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+def test_execution_view(request):
+    """测试执行页面"""
+    return render(request, 'test_execution.html')

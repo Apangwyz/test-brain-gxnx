@@ -736,6 +736,7 @@ function displayTestCases(testCases) {
             
             const requirementElement = document.getElementById('input-text');
             const llmProviderElement = document.getElementById('llm-provider');
+            const systemSelectElement = document.getElementById('system-select');
             
             if (!requirementElement || !llmProviderElement) {
                 console.error('缺失必要的页面元素');
@@ -746,7 +747,8 @@ function displayTestCases(testCases) {
             const requestData = {
                 test_cases: testCases,
                 requirement: requirementElement.value,
-                llm_provider: llmProviderElement.value
+                llm_provider: llmProviderElement.value,
+                system_id: systemSelectElement ? systemSelectElement.value : null
             };
             
             saveButton.disabled = true;

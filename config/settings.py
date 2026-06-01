@@ -160,19 +160,19 @@ LLM_PROVIDERS = {
 }
 # AI Agent LLM提供商配置, 每个AI Agent可定制LLM提供商
 AGENT_LLM_DEFAULTS = {
-    "test_case_generator":  {"provider": "deepseek"},
-    "test_case_reviewer":   {"provider": "deepseek"},
-    "prd_analyzer":         {"provider": "deepseek"},
-    "java_code_analyzer":   {"provider": "deepseek"},
-    "iface_case_generator": {"provider": "deepseek"},
+    "test_case_generator":  {"provider": "qwen"},
+    "test_case_reviewer":   {"provider": "qwen"},
+    "prd_analyzer":         {"provider": "qwen"},
+    "java_code_analyzer":   {"provider": "qwen"},
+    "iface_case_generator": {"provider": "qwen"},
 }
 
 # 向量数据库配置
 VECTOR_DB_CONFIG = {
-    'host': '172.16.50.57', # 
-    'port': '19530',
-    'db_name': 'qa_knowledge',
-    'collection_name': 'vv_knowledge_collection',
+    'host': os.getenv('MILVUS_HOST', '127.0.0.1'),
+    'port': os.getenv('MILVUS_PORT', '19530'),
+    'db_name': os.getenv('MILVUS_DB_NAME', 'default'),
+    'collection_name': os.getenv('MILVUS_COLLECTION', 'vv_knowledge_collection'),
 }
 
 # java源码分析服务调用地址
@@ -206,7 +206,7 @@ EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "aliyun")
 
 # 阿里云向量模型配置
 ALIYUN_EMBEDDING_CONFIG = {
-    'api_key': os.getenv('QWEN_API_KEY', ''),
+    'api_key': os.getenv('QWEN_API_KEY', 'sk-7a0c2f3723be46a3a24ce72e8645b621'),
     'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
     'model': 'text-embedding-v4',
     'batch_size': 10,  # 阿里云限制最大10条  # 阿里云限制每次最多25条

@@ -28,6 +28,17 @@
                 </select>
             </div>
             
+            <div class="form-group mb-3">
+                <label for="system-select">选择所属系统:</label>
+                <select class="form-control" id="system-select" name="system_id">
+                    <option value="">-- 请选择系统 --</option>
+                    {% for system in systems %}
+                        <option value="{{ system.id }}">{{ system.name }} ({{ system.code }})</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">选择测试用例所属的系统，只显示已启用的系统</small>
+            </div>
+            
             <div class="form-group">
                 <label for="file-upload">上传需求文档:</label>
                 <div class="custom-file-upload">

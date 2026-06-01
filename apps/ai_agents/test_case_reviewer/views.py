@@ -19,6 +19,172 @@ from apps.llm.utils import get_agent_llm_configs
 
 logger = get_logger(__name__)
 
+def parse_review_result(review_content):
+    """
+    将评审结果从JSON格式解析为结构化数据
+    返回包含评审结论、评审等级、评审意见等字段的字典
+    """
+    default_result = {
+        '评审结论': '',
+        '评审等级': '',
+        '评审意见': '',
+        '待改进项': '',
+        '优点': '',
+        '其他建议': '',
+        '原始内容': review_content
+    }
+
+    if not review_content:
+        return default_result
+
+    # 清理markdown格式
+    cleaned_content = _clean_markdown_json(review_content)
+
+    try:
+        result = json.loads(cleaned_content)
+
+        # 首先检查是否包含中文字段名
+        has_chinese_fields = any(key in result for key in ['评审结论', '评审等级', '总体评价', '优点', '待改进项'])
+
+        if has_chinese_fields:
+            # 直接使用中文字段名
+            structured = {
+                '评审结论': _format_recommendation(result.get('评审结论', '')),
+                '评审等级': _format_chinese_score(result.get('评审等级', '')),
+                '评审意见': _format_comments(result.get('总体评价', result.get('评审意见', ''))),
+                '待改进项': _format_list_field(result.get('待改进项', [])),
+                '优点': _format_list_field(result.get('优点', [])),
+                '其他建议': _format_list_field(result.get('其他建议', [])),
+                '原始内容': review_content
+            }
+        else:
+            # 解析英文字段并映射
+            structured = {
+                '评审结论': _format_recommendation(result.get('recommendation', '')),
+                '评审等级': _format_score(result.get('score', '')),
+                '评审意见': _format_comments(result.get('comments', '')),
+                '待改进项': _format_list_field(result.get('weaknesses', [])) + _format_list_field(result.get('missing_scenarios', [])),
+                '优点': _format_list_field(result.get('strengths', [])),
+                '其他建议': _format_list_field(result.get('suggestions', [])),
+                '原始内容': review_content
+            }
+
+        return structured
+
+    except json.JSONDecodeError:
+        # 如果不是有效JSON，尝试作为原始文本处理
+        default_result['评审意见'] = _format_raw_text(review_content)
+        return default_result
+    except Exception as e:
+        default_result['评审意见'] = _format_raw_text(review_content)
+        return default_result
+
+
+def _clean_markdown_json(content):
+    """清理markdown格式的JSON内容"""
+    if not content:
+        return content
+    # 移除 ```json 和 ``` 标记
+    import re
+    # 匹配 ```json ... ``` 或 ``` ... ```
+    pattern = r'```(?:json)?\s*([\s\S]*?)```'
+    match = re.search(pattern, content)
+    if match:
+        return match.group(1).strip()
+    return content
+
+
+def _format_raw_text(content):
+    """将原始文本格式化为易读形式"""
+    if not content:
+        return ''
+    content = content.strip()
+    # 如果包含换行符但不是JSON，尝试按行格式化
+    if '\n' in content and not content.startswith('{'):
+        lines = [line.strip() for line in content.split('\n') if line.strip()]
+        if len(lines) > 1:
+            return '\n'.join(f"- {line}" for line in lines if line)
+    return content
+
+
+def _format_recommendation(value):
+    """格式化评审结论"""
+    if not value:
+        return ''
+    # 统一结论表述
+    if '通过' in str(value) or 'pass' in str(value).lower():
+        return '通过'
+    elif '不通过' in str(value) or 'fail' in str(value).lower() or '拒绝' in str(value):
+        return '不通过'
+    return str(value)
+
+
+def _format_chinese_score(value):
+    """格式化中文评审等级"""
+    if not value:
+        return ''
+    value_str = str(value)
+    # 如果已经是A级/B级/C级/D级格式，直接返回
+    if '级' in value_str:
+        return value_str
+    # 如果是数字，转换为等级
+    try:
+        score = float(value_str)
+        if score >= 8:
+            return f'A级（{value_str}分）'
+        elif score >= 6:
+            return f'B级（{value_str}分）'
+        elif score >= 4:
+            return f'C级（{value_str}分）'
+        else:
+            return f'D级（{value_str}分）'
+    except:
+        return value_str
+
+
+def _format_score(value):
+    """格式化评审等级/评分"""
+    if not value:
+        return ''
+    if isinstance(value, (int, float)):
+        # 将数字评分转换为等级
+        if value >= 8:
+            return f'A级（{value}分）'
+        elif value >= 6:
+            return f'B级（{value}分）'
+        elif value >= 4:
+            return f'C级（{value}分）'
+        else:
+            return f'D级（{value}分）'
+    return str(value)
+
+
+def _format_comments(value):
+    """格式化总体评价"""
+    if not value:
+        return ''
+    return str(value)
+
+
+def _format_list_field(value):
+    """将列表格式化为换行分隔的字符串"""
+    if not value:
+        return ''
+    if isinstance(value, list):
+        items = []
+        for item in value:
+            if isinstance(item, dict):
+                # 处理字典格式的条目
+                if '问题' in item:
+                    items.append(f"- {item['问题']}")
+                if '建议' in item:
+                    items.append(f"  建议：{item['建议']}")
+            else:
+                items.append(f"- {item}")
+        return '\n'.join(items)
+    return str(value)
+
+
 DEFAULT_PROVIDER, PROVIDERS = get_agent_llm_configs("test_case_reviewer")
 # 获取默认提供商的配置
 DEFAULT_LLM_CONFIG = PROVIDERS.get(DEFAULT_PROVIDER, {})
@@ -119,16 +285,19 @@ def case_review(request):
         
         # 调用测试用例评审Agent
         logger.info("开始调用评审Agent...")
-        test_case_reviewer = TestCaseReviewerAgent(llm_service, knowledge_service)
+        test_case_reviewer = TestCaseReviewerAgent(get_llm_service(), knowledge_service)
         review_result = test_case_reviewer.review(test_case)
         logger.info(f"评审完成，结果: {review_result}")
         
         # 从AIMessage对象中提取内容
         review_content = review_result.content if hasattr(review_result, 'content') else str(review_result)
         
+        # 解析JSON并返回结构化数据
+        structured_result = parse_review_result(review_content)
+        
         return JsonResponse({
             'success': True,
-            'review_result': review_content  # 只返回评审内容文本
+            'review_result': structured_result
         })
         
     except json.JSONDecodeError:

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TestCase, TestCaseReview, KnowledgeBase, System, TestPlan, RequirementDoc
+from .models import TestCase, TestCaseReview, KnowledgeBase, System, TestPlan, RequirementDoc, TestExecutionRecord, TestExecutionBatch
 
 @admin.register(TestCase)
 class TestCaseAdmin(admin.ModelAdmin):
@@ -42,3 +42,17 @@ class RequirementDocAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
     search_fields = ('title', 'content')
     readonly_fields = ('created_at', 'updated_at') 
+
+@admin.register(TestExecutionRecord)
+class TestExecutionRecordAdmin(admin.ModelAdmin):
+    list_display = ('test_case', 'status', 'start_time', 'duration', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('test_case__title', 'log')
+    readonly_fields = ('created_at',)
+
+@admin.register(TestExecutionBatch)
+class TestExecutionBatchAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status', 'start_time', 'end_time', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = ('created_at',)

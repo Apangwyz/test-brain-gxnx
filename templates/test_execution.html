@@ -1,0 +1,848 @@
+{% extends "base.html" %}
+
+{% block title %}测试执行 - TestBrain{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-running {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-passed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-failed {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-skipped {
+        background-color: #e2e3e5;
+        color: #6c757d;
+    }
+    
+    .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .progress-bar {
+        transition: width 0.3s ease;
+    }
+    
+    .log-content {
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 13px;
+    }
+    
+    .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 14px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .toast.show {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    .toast.success {
+        background-color: #28a745;
+    }
+    
+    .toast.error {
+        background-color: #dc3545;
+    }
+    
+    .toast.warning {
+        background-color: #ffc107;
+        color: #333;
+    }
+    
+    .execute-btn {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+        }
+    }
+    
+    .batch-progress {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+    
+    .batch-progress-bar {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面标题 -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">自动化测试用例执行</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <p class="text-muted mb-0">管理测试用例的自动化执行，查看执行记录和统计分析</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="openExecuteModal()">
+                    <i class="fas fa-play mr-2"></i> 执行测试用例
+                </button>
+                <button class="btn btn-secondary" onclick="refreshRecords()">
+                    <i class="fas fa-sync-alt mr-2"></i> 刷新
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card p-4">
+                    <div class="d-flex align-items-center">
+                        <div class="system-icon mr-3" style="background-color: #007bff;">
+                            <i class="fas fa-list"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-sm">总执行次数</p>
+                            <p class="h3 font-bold" id="stats-total">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card p-4">
+                    <div class="d-flex align-items-center">
+                        <div class="system-icon mr-3" style="background-color: #28a745;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-sm">通过</p>
+                            <p class="h3 font-bold" id="stats-passed">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card p-4">
+                    <div class="d-flex align-items-center">
+                        <div class="system-icon mr-3" style="background-color: #dc3545;">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-sm">失败</p>
+                            <p class="h3 font-bold" id="stats-failed">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card p-4">
+                    <div class="d-flex align-items-center">
+                        <div class="system-icon mr-3" style="background-color: #ffc107;">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-sm">通过率</p>
+                            <p class="h3 font-bold" id="stats-pass-rate">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 搜索和筛选区域 -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="search-box" style="position: relative;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6c757d;"></i>
+                    <input type="text" class="form-control" id="search-input" placeholder="搜索测试用例名称..." onkeyup="handleSearch()" style="padding-left: 36px;">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-control" id="status-filter" onchange="handleFilter()">
+                    <option value="">全部状态</option>
+                    <option value="running">执行中</option>
+                    <option value="passed">通过</option>
+                    <option value="failed">失败</option>
+                    <option value="skipped">跳过</option>
+                    <option value="error">异常</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                    <i class="fas fa-filter mr-1"></i> 清除筛选
+                </button>
+            </div>
+            <div class="col-md-3">
+                <div class="btn-group w-100">
+                    <button class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-download mr-1"></i> 导出
+                    </button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="/api/test-execution/export/?format=csv" target="_blank">导出CSV</a>
+                        <a class="dropdown-item" href="/api/test-execution/export/?format=json" target="_blank">导出JSON</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 执行进度面板 -->
+<div class="card mb-4" id="execution-progress" style="display: none;">
+    <div class="card-header bg-primary text-white">
+        <h6 class="mb-0">
+            <i class="fas fa-spinner fa-spin mr-2"></i> 测试执行中
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span>整体进度</span>
+                <span id="progress-text">0/0 (0%)</span>
+            </div>
+            <div class="batch-progress">
+                <div class="batch-progress-bar bg-primary" id="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+        <div id="execution-logs" class="log-content bg-dark text-green-400 p-3 rounded" style="color: #4ade80;"></div>
+    </div>
+</div>
+
+<!-- 测试执行记录列表 -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>测试用例</th>
+                        <th>执行状态</th>
+                        <th>开始时间</th>
+                        <th>耗时</th>
+                        <th>执行人</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="execution-table-body">
+                    <!-- 数据将通过JS动态加载 -->
+                </tbody>
+            </table>
+        </div>
+        <div id="empty-state" class="text-center py-8" style="display: none;">
+            <i class="fas fa-file-alt text-muted" style="font-size: 48px;"></i>
+            <p class="text-muted mt-3">暂无执行记录</p>
+            <button class="btn btn-primary mt-2" onclick="openExecuteModal()">
+                <i class="fas fa-play mr-2"></i> 执行测试用例
+            </button>
+        </div>
+        
+        <!-- 分页 -->
+        <div class="d-flex justify-content-between align-items-center mt-4" id="pagination" style="display: none;">
+            <span class="text-muted">显示第 <span id="page-info">1-10</span> 条，共 <span id="total-count">0</span> 条记录</span>
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item" id="prev-page">
+                        <a class="page-link" href="#" onclick="prevPage()">上一页</a>
+                    </li>
+                    <li class="page-item active">
+                        <a class="page-link" href="#">1</a>
+                    </li>
+                    <li class="page-item" id="next-page">
+                        <a class="page-link" href="#" onclick="nextPage()">下一页</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- 执行测试用例弹窗 -->
+<div class="modal fade" id="execute-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">选择测试用例执行</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>可选测试用例（已通过评审）</h6>
+                        <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                            <div id="available-cases">
+                                <!-- 数据将通过JS动态加载 -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>已选择的测试用例</h6>
+                        <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                            <div id="selected-cases">
+                                <p class="text-muted text-center py-4">暂无选择</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label for="batch-name">批次名称</label>
+                    <input type="text" class="form-control" id="batch-name" placeholder="输入批次名称" value="测试执行批次">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="executeSelectedCases()">
+                    <i class="fas fa-play mr-2"></i> 开始执行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 执行详情弹窗 -->
+<div class="modal fade" id="detail-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detail-title">执行详情</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>测试用例</label>
+                            <input type="text" class="form-control" id="detail-case-title" readonly>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>执行状态</label>
+                            <span class="status-badge" id="detail-status"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>开始时间</label>
+                            <input type="text" class="form-control" id="detail-start-time" readonly>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>耗时</label>
+                            <input type="text" class="form-control" id="detail-duration" readonly>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>执行日志</label>
+                    <pre class="form-control log-content" id="detail-log" style="white-space: pre-wrap;"></pre>
+                </div>
+                <div class="form-group" id="error-section" style="display: none;">
+                    <label>错误信息</label>
+                    <pre class="form-control bg-danger text-white log-content" id="detail-error"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="retry-btn" style="display: none;" onclick="retryExecution()">
+                    <i class="fas fa-redo mr-2"></i> 重新执行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let records = [];
+    let selectedCases = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let executingCaseId = null;
+    let executingBatchId = null;
+    let executionProgress = { current: 0, total: 0 };
+
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchExecutionRecords();
+        fetchStats();
+        fetchApprovedCases();
+    });
+
+    // 获取执行记录
+    async function fetchExecutionRecords(page = 1) {
+        try {
+            const response = await fetch(`/api/test-execution/?page=${page}&page_size=10`);
+            const data = await response.json();
+            
+            if (data.success) {
+                records = data.records;
+                currentPage = data.page;
+                totalPages = Math.ceil(data.total / data.page_size);
+                renderRecords(records);
+                updatePagination(data.total, data.page, data.page_size);
+            }
+        } catch (error) {
+            showToast('获取执行记录失败', 'error');
+        }
+    }
+
+    // 获取统计数据
+    async function fetchStats() {
+        try {
+            const response = await fetch('/api/test-execution/stats/');
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('stats-total').textContent = data.stats.total;
+                document.getElementById('stats-passed').textContent = data.stats.passed;
+                document.getElementById('stats-failed').textContent = data.stats.failed;
+                document.getElementById('stats-pass-rate').textContent = data.stats.pass_rate + '%';
+            }
+        } catch (error) {
+            console.error('获取统计数据失败:', error);
+        }
+    }
+
+    // 获取已通过评审的测试用例
+    async function fetchApprovedCases() {
+        try {
+            const response = await fetch('/api/testcases/?status=approved');
+            const data = await response.json();
+            
+            if (data.success) {
+                renderAvailableCases(data.test_cases);
+            }
+        } catch (error) {
+            console.error('获取测试用例失败:', error);
+        }
+    }
+
+    // 渲染记录列表
+    function renderRecords(recordList) {
+        const tbody = document.getElementById('execution-table-body');
+        
+        if (recordList.length === 0) {
+            tbody.innerHTML = '';
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('pagination').style.display = 'none';
+            return;
+        }
+        
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('pagination').style.display = 'flex';
+        
+        tbody.innerHTML = recordList.map(record => `
+            <tr>
+                <td>
+                    <div>
+                        <div class="font-weight-bold">${record.test_case_title}</div>
+                        <div class="text-sm text-muted">${record.test_case_description.substring(0, 50)}${record.test_case_description.length > 50 ? '...' : ''}</div>
+                    </div>
+                </td>
+                <td>
+                    <span class="status-badge status-${record.status}">
+                        ${record.status_display}
+                    </span>
+                </td>
+                <td>${formatDate(record.start_time)}</td>
+                <td>${record.duration ? record.duration.toFixed(2) + 's' : '-'}</td>
+                <td>${record.executor || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-info mr-1" onclick="viewDetail(${record.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="executeSingleCase(${record.test_case_id})">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 渲染可选测试用例
+    function renderAvailableCases(cases) {
+        const container = document.getElementById('available-cases');
+        
+        if (!cases || cases.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center py-4">暂无已通过评审的测试用例</p>';
+            return;
+        }
+        
+        container.innerHTML = cases.map(c => `
+            <div class="d-flex justify-content-between align-items-center p-2 rounded hover:bg-light cursor-pointer" 
+                 onclick="toggleCaseSelection(${c.id}, '${c.title}')">
+                <div>
+                    <div class="font-weight-medium">${c.title}</div>
+                    <div class="text-sm text-muted">ID: ${c.id}</div>
+                </div>
+                <input type="checkbox" ${selectedCases.find(s => s.id === c.id) ? 'checked' : ''} 
+                       onchange="toggleCaseSelection(${c.id}, '${c.title}')">
+            </div>
+        `).join('');
+    }
+
+    // 切换测试用例选择
+    function toggleCaseSelection(caseId, caseTitle) {
+        const index = selectedCases.findIndex(s => s.id === caseId);
+        
+        if (index > -1) {
+            selectedCases.splice(index, 1);
+        } else {
+            selectedCases.push({ id: caseId, title: caseTitle });
+        }
+        
+        updateSelectedCasesDisplay();
+    }
+
+    // 更新已选择测试用例显示
+    function updateSelectedCasesDisplay() {
+        const container = document.getElementById('selected-cases');
+        
+        if (selectedCases.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center py-4">暂无选择</p>';
+            return;
+        }
+        
+        container.innerHTML = selectedCases.map((c, index) => `
+            <div class="d-flex justify-content-between align-items-center p-2 rounded bg-light">
+                <div>
+                    <span class="badge badge-primary mr-2">${index + 1}</span>
+                    ${c.title}
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="removeSelectedCase(${c.id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // 移除已选择的测试用例
+    function removeSelectedCase(caseId) {
+        const index = selectedCases.findIndex(s => s.id === caseId);
+        if (index > -1) {
+            selectedCases.splice(index, 1);
+            updateSelectedCasesDisplay();
+        }
+    }
+
+    // 打开执行弹窗
+    function openExecuteModal() {
+        selectedCases = [];
+        updateSelectedCasesDisplay();
+        $('#execute-modal').modal('show');
+    }
+
+    // 执行选中的测试用例
+    async function executeSelectedCases() {
+        if (selectedCases.length === 0) {
+            showToast('请先选择测试用例', 'warning');
+            return;
+        }
+        
+        const batchName = document.getElementById('batch-name').value || '测试执行批次';
+        const caseIds = selectedCases.map(c => c.id);
+        
+        try {
+            // 创建执行批次
+            const createResponse = await fetch('/api/test-execution/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    test_case_ids: caseIds,
+                    batch_name: batchName
+                })
+            });
+            
+            const createData = await createResponse.json();
+            
+            if (createData.success) {
+                showToast('执行批次已创建，开始执行...', 'success');
+                $('#execute-modal').modal('hide');
+                
+                // 显示进度面板
+                document.getElementById('execution-progress').style.display = 'block';
+                executionProgress = { current: 0, total: caseIds.length };
+                updateProgress();
+                
+                // 逐个执行测试用例
+                for (const caseId of caseIds) {
+                    await executeSingleCaseAsync(caseId);
+                    executionProgress.current++;
+                    updateProgress();
+                }
+                
+                // 执行完成
+                document.getElementById('execution-progress').style.display = 'none';
+                showToast('所有测试用例执行完成！', 'success');
+                fetchExecutionRecords();
+                fetchStats();
+            }
+        } catch (error) {
+            showToast('创建执行批次失败', 'error');
+        }
+    }
+
+    // 更新进度显示
+    function updateProgress() {
+        const progress = executionProgress.total > 0 
+            ? (executionProgress.current / executionProgress.total) * 100 
+            : 0;
+        
+        document.getElementById('progress-bar').style.width = progress + '%';
+        document.getElementById('progress-text').textContent = 
+            `${executionProgress.current}/${executionProgress.total} (${Math.round(progress)}%)`;
+        
+        const logs = document.getElementById('execution-logs');
+        logs.innerHTML += `<div>[${new Date().toLocaleTimeString()}] 已执行 ${executionProgress.current}/${executionProgress.total} 个测试用例</div>`;
+        logs.scrollTop = logs.scrollHeight;
+    }
+
+    // 异步执行单个测试用例
+    async function executeSingleCaseAsync(caseId) {
+        try {
+            const response = await fetch(`/api/test-execution/${caseId}/execute/`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const logs = document.getElementById('execution-logs');
+                logs.innerHTML += `<div>[${new Date().toLocaleTimeString()}] 测试用例 ${caseId}: ${data.record.status === 'passed' ? '✓ 通过' : '✗ 失败'}</div>`;
+                logs.scrollTop = logs.scrollHeight;
+            }
+        } catch (error) {
+            console.error('执行测试用例失败:', error);
+        }
+    }
+
+    // 执行单个测试用例（带UI反馈）
+    async function executeSingleCase(caseId) {
+        if (executingCaseId) {
+            showToast('已有测试用例正在执行中', 'warning');
+            return;
+        }
+        
+        executingCaseId = caseId;
+        
+        try {
+            showToast('开始执行测试用例...', 'info');
+            
+            const response = await fetch(`/api/test-execution/${caseId}/execute/`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`测试执行完成: ${data.record.status === 'passed' ? '通过' : '失败'}`, 
+                    data.record.status === 'passed' ? 'success' : 'error');
+                fetchExecutionRecords();
+                fetchStats();
+            } else {
+                showToast(data.message, 'error');
+            }
+        } catch (error) {
+            showToast('执行测试用例失败', 'error');
+        } finally {
+            executingCaseId = null;
+        }
+    }
+
+    // 查看详情
+    async function viewDetail(recordId) {
+        try {
+            const record = records.find(r => r.id === recordId);
+            
+            if (record) {
+                document.getElementById('detail-title').textContent = `执行详情 - ${record.test_case_title}`;
+                document.getElementById('detail-case-title').value = record.test_case_title;
+                document.getElementById('detail-status').textContent = record.status_display;
+                document.getElementById('detail-status').className = `status-badge status-${record.status}`;
+                document.getElementById('detail-start-time').value = formatDate(record.start_time);
+                document.getElementById('detail-duration').value = record.duration ? record.duration.toFixed(2) + '秒' : '-';
+                document.getElementById('detail-log').textContent = record.log || '无执行日志';
+                
+                if (record.error_message) {
+                    document.getElementById('error-section').style.display = 'block';
+                    document.getElementById('detail-error').textContent = record.error_message;
+                    document.getElementById('retry-btn').style.display = 'block';
+                } else {
+                    document.getElementById('error-section').style.display = 'none';
+                    document.getElementById('retry-btn').style.display = 'none';
+                }
+                
+                $('#detail-modal').modal('show');
+            }
+        } catch (error) {
+            showToast('获取详情失败', 'error');
+        }
+    }
+
+    // 重试执行
+    function retryExecution() {
+        const recordId = parseInt(document.getElementById('detail-title').textContent.split('-')[0].trim());
+        const record = records.find(r => r.id === recordId);
+        
+        if (record) {
+            $('#detail-modal').modal('hide');
+            executeSingleCase(record.test_case_id);
+        }
+    }
+
+    // 搜索处理
+    function handleSearch() {
+        const keyword = document.getElementById('search-input').value.toLowerCase();
+        const status = document.getElementById('status-filter').value;
+        filterRecords(keyword, status);
+    }
+
+    // 筛选处理
+    function handleFilter() {
+        const keyword = document.getElementById('search-input').value.toLowerCase();
+        const status = document.getElementById('status-filter').value;
+        filterRecords(keyword, status);
+    }
+
+    // 筛选记录
+    function filterRecords(keyword, status) {
+        let filtered = records;
+        
+        if (keyword) {
+            filtered = filtered.filter(r => 
+                r.test_case_title.toLowerCase().includes(keyword) || 
+                r.test_case_description.toLowerCase().includes(keyword)
+            );
+        }
+        
+        if (status) {
+            filtered = filtered.filter(r => r.status === status);
+        }
+        
+        renderRecords(filtered);
+    }
+
+    // 清除筛选
+    function clearFilters() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('status-filter').value = '';
+        fetchExecutionRecords();
+    }
+
+    // 刷新记录
+    function refreshRecords() {
+        fetchExecutionRecords(currentPage);
+        fetchStats();
+    }
+
+    // 格式化日期
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        return date.toLocaleString('zh-CN');
+    }
+
+    // 更新分页
+    function updatePagination(total, page, pageSize) {
+        document.getElementById('total-count').textContent = total;
+        document.getElementById('page-info').textContent = `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)}`;
+        
+        document.getElementById('prev-page').classList.toggle('disabled', page <= 1);
+        document.getElementById('next-page').classList.toggle('disabled', page >= totalPages);
+    }
+
+    // 上一页
+    function prevPage() {
+        if (currentPage > 1) {
+            fetchExecutionRecords(currentPage - 1);
+        }
+    }
+
+    // 下一页
+    function nextPage() {
+        if (currentPage < totalPages) {
+            fetchExecutionRecords(currentPage + 1);
+        }
+    }
+
+    // 显示提示
+    function showToast(message, type) {
+        const toastContainer = document.createElement('div');
+        toastContainer.className = `toast ${type}`;
+        toastContainer.innerHTML = `
+            <span style="margin-right: 10px;">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+            </span>
+            <span>${message}</span>
+        `;
+        document.body.appendChild(toastContainer);
+        
+        setTimeout(() => {
+            toastContainer.classList.add('show');
+        }, 10);
+        
+        setTimeout(() => {
+            toastContainer.classList.remove('show');
+            setTimeout(() => {
+                toastContainer.remove();
+            }, 300);
+        }, 3000);
+    }
+</script>
+{% endblock %}

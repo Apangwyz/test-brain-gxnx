@@ -236,3 +236,91 @@ class RequirementDoc(models.Model):
     class Meta:
         verbose_name = "需求文档"
         verbose_name_plural = "需求文档"
+
+
+class TestExecutionRecord(models.Model):
+    """测试执行记录模型"""
+    EXECUTION_STATUS_CHOICES = [
+        ('running', '执行中'),
+        ('passed', '通过'),
+        ('failed', '失败'),
+        ('skipped', '跳过'),
+        ('error', '异常'),
+    ]
+    
+    test_case = models.ForeignKey(
+        TestCase, 
+        on_delete=models.CASCADE, 
+        related_name='execution_records',
+        verbose_name="测试用例"
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=EXECUTION_STATUS_CHOICES, 
+        default='running',
+        verbose_name="执行状态"
+    )
+    executor = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        related_name='executed_tests',
+        verbose_name="执行人",
+        null=True,
+        blank=True
+    )
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="结束时间")
+    duration = models.FloatField(null=True, blank=True, verbose_name="耗时(秒)")
+    log = models.TextField(blank=True, verbose_name="执行日志")
+    error_message = models.TextField(blank=True, verbose_name="错误信息")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    
+    def __str__(self):
+        return f"Execution for {self.test_case.title} - {self.get_status_display()}"
+    
+    class Meta:
+        verbose_name = "测试执行记录"
+        verbose_name_plural = "测试执行记录"
+        ordering = ['-created_at']
+
+
+class TestExecutionBatch(models.Model):
+    """测试执行批次模型"""
+    BATCH_STATUS_CHOICES = [
+        ('pending', '待执行'),
+        ('running', '执行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+    ]
+    
+    name = models.CharField(max_length=200, verbose_name="批次名称")
+    status = models.CharField(
+        max_length=20, 
+        choices=BATCH_STATUS_CHOICES, 
+        default='pending',
+        verbose_name="批次状态"
+    )
+    test_cases = models.ManyToManyField(
+        TestCase, 
+        related_name='execution_batches',
+        blank=True,
+        verbose_name="关联测试用例"
+    )
+    executor = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        related_name='execution_batches',
+        verbose_name="执行人",
+        null=True,
+        blank=True
+    )
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="结束时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name = "测试执行批次"
+        verbose_name_plural = "测试执行批次"

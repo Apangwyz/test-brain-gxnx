@@ -8,12 +8,15 @@ class KnowledgeConfig(AppConfig):
     vector_store = None
 
     def ready(self):
-        # 暂时禁用自动初始化，需要配置API Key后才能使用
-        # from .embedding import create_embedder
-        # from .vector_store import MilvusVectorStore
-        #
-        # if KnowledgeConfig.embedder is None:
-        #     KnowledgeConfig.embedder = create_embedder()
-        # if KnowledgeConfig.vector_store is None:
-        #     KnowledgeConfig.vector_store = MilvusVectorStore()
-        pass
+        try:
+            from .embedding import create_embedder
+            from .vector_store import MilvusVectorStore
+
+            if KnowledgeConfig.embedder is None:
+                KnowledgeConfig.embedder = create_embedder()
+            if KnowledgeConfig.vector_store is None:
+                KnowledgeConfig.vector_store = MilvusVectorStore()
+            print("Knowledge service initialized successfully")
+        except Exception as e:
+            print(f"Warning: Knowledge service initialization failed: {e}")
+            print("Knowledge base features may not be available")

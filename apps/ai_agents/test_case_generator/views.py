@@ -5,9 +5,10 @@ from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render
+from asgiref.sync import sync_to_async
 from apps.llm import LLMServiceFactory
 from apps.ai_agents.test_case_generator.generator import TestCaseGeneratorAgent
-from apps.core.models import TestCase
+from apps.core.models import TestCase, System
 from apps.utils.logger_manager import get_logger
 from apps.knowledge.service import get_knowledgeService_instance
 from apps.llm.utils import get_agent_llm_configs
@@ -38,12 +39,17 @@ async def generate(request):
     """
     logger.info("===== 进入generate视图函数 =====")
     logger.info(f"请求方法: {request.method}")
+    
+    # 获取启用的系统列表 - 使用sync_to_async包装同步数据库操作
+    active_systems = await sync_to_async(lambda: list(System.objects.filter(status='active').values('id', 'name', 'code')))()
+    
     context = {
         'llm_providers': PROVIDERS,
         'llm_provider': DEFAULT_PROVIDER,
         'requirement': '',
         # 'api_description': '',
-        'test_cases': None  # 初始化为 None
+        'test_cases': None,  # 初始化为 None
+        'systems': active_systems  # 添加系统列表
     }
     
     if request.method == 'GET':
@@ -388,6 +394,7 @@ def save_test_case(request):
         requirement = data.get('requirement')
         test_cases_list = data.get('test_cases', [])
         llm_provider = data.get('llm_provider')
+        system_id = data.get('system_id')  # 获取系统ID
         
         # logger.info(f"接收到的保存请求数据: {json.dumps(data, ensure_ascii=False, indent=2)}")
         
@@ -396,6 +403,16 @@ def save_test_case(request):
                 'success': False,
                 'message': '测试用例数据为空'
             }, status=400)
+        
+        # 验证系统是否存在且启用
+        if system_id:
+            try:
+                system = System.objects.get(id=system_id, status='active')
+            except System.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': '所选系统不存在或已停用'
+                }, status=400)
         
         # 准备批量创建的测试用例列表
         test_cases_to_create = []
@@ -409,6 +426,7 @@ def save_test_case(request):
                 expected_results='\n'.join(test_case.get('expected_results', [])),
                 requirements=requirement,
                 llm_provider=llm_provider,
+                system_id=system_id,  # 关联系统
                 status='pending'  # 默认状态为待评审
                 # created_by=request.user  # 如果需要记录创建用户，取消注释此行
             )
