@@ -17,6 +17,10 @@ from apps.utils.progress_manager import (
 )
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from apps.utils.auth_decorators import api_key_or_csrf_exempt
+
+from django.contrib.auth.decorators import login_required
+
 
 logger = get_logger(__name__)
 
@@ -41,7 +45,7 @@ def prd_analyzer(request):
         return render(request, 'prd_analyzer.html')
 
 
-@csrf_exempt
+@api_key_or_csrf_exempt
 @require_http_methods(["POST"])
 def prd_upload_api(request):
     """PRD文件上传API"""
@@ -215,7 +219,7 @@ def extract_text_from_pdf(file_path):
         return ''
 
 
-@csrf_exempt
+@api_key_or_csrf_exempt
 @require_http_methods(["POST"])
 def prd_analyze_api(request):
     """PRD分析API接口"""

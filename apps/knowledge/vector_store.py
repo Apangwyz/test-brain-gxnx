@@ -20,17 +20,15 @@ class MilvusVectorStore:
         self.port = port or config.get("port", "19530")
         self.db_name = db_name or config.get("db_name", "default")
         self.collection_name = collection_name or config.get("collection_name", "vv_knowledge_collection")
-        # 原来的逻辑
-        self._connect()
-        self._ensure_collection()
+        # 检查 Milvus 是否启用（从 settings 读取 ENABLE_MILVUS 配置）（从 settings 读取 ENABLE_MILVUS 配置）
+        self._enabled = getattr(settings, 'ENABLE_MILVUS', False)
+        if self._enabled:
+            self._connect()
+            self._ensure_collection()
+            logger.info('Milvus 连接已建立')
+        else:
+            logger.info('Milvus 连接已禁用 (ENABLE_MILVUS=False)，向量数据库功能不可用')
 
-        # 从Django配置文件中读取ENABLE_MILVUS设置
-        # if getattr(settings, 'ENABLE_MILVUS', False):
-        #     self._connect()
-        #     self._ensure_collection()
-        # else:
-        #     print("Milvus connection disabled in settings")
-        
     def _connect(self):
         """连接到Milvus服务器"""
         connections.connect(
@@ -113,8 +111,15 @@ class MilvusVectorStore:
             collection.load()
             return collection
         
+    def is_available(self) -> bool:
+        """检查Milvus服务是否可用"""
+        return self._enabled
+
     def add_data(self, data: List[Dict[str, Any]]):
         """添加文档到向量数据库"""
+        if not self._enabled:
+            logger.warning("Milvus 已禁用，add_data 被跳过")
+            return
         logger.info("进入到add_data方法")
         collection = Collection(self.collection_name)
 
@@ -133,6 +138,9 @@ class MilvusVectorStore:
     
     def delete_by_source(self, source_path: str):
         """根据文件路径删除文档的所有记录"""
+        if not self._enabled:
+            logger.warning("Milvus 已禁用，delete_by_source 被跳过")
+            return
         logger.info(f"开始删除文件 {source_path} 的向量记录")
         collection = Collection(self.collection_name)
         
@@ -148,6 +156,9 @@ class MilvusVectorStore:
         
     def search(self, query_vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
         """搜索最相似的文档"""
+        if not self._enabled:
+            logger.warning("Milvus 已禁用，search 返回空结果")
+            return []
         collection = Collection(self.collection_name)
         collection.load()
         

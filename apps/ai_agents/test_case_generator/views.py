@@ -4,6 +4,7 @@ import asyncio
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from apps.utils.auth_decorators import api_key_or_csrf_exempt
 from django.shortcuts import render
 from asgiref.sync import sync_to_async
 from apps.llm import LLMServiceFactory
@@ -33,6 +34,10 @@ knowledge_service = get_knowledgeService_instance()
 
 
 # @login_required 先屏蔽登录
+from django.contrib.auth.decorators import login_required
+
+
+@login_required
 async def generate(request):
     """
     页面-测试用例生成页面视图函数
@@ -53,7 +58,7 @@ async def generate(request):
     }
     
     if request.method == 'GET':
-        return render(request, 'generate.html', context)
+        return await sync_to_async(render, thread_sensitive=True)(request, 'generate.html', context)
     
     # POST 请求参数解析
     try:
@@ -120,7 +125,7 @@ async def generate(request):
 
 
 # @login_required 先屏蔽登录
-@csrf_exempt
+@api_key_or_csrf_exempt
 @require_http_methods(["POST"])
 async def generate_with_progress(request):
     """
@@ -340,7 +345,7 @@ async def _generate_test_cases_async(
         progress_manager.set_error(str(e))
 
 
-@csrf_exempt
+@api_key_or_csrf_exempt
 @require_http_methods(["GET"])
 def get_progress(request, task_id):
     """
@@ -457,7 +462,7 @@ def save_test_case(request):
         }, status=500)
 
 
-@csrf_exempt
+@api_key_or_csrf_exempt
 @require_http_methods(["POST"])
 def upload_file(request):
     """

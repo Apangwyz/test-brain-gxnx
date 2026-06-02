@@ -49,8 +49,17 @@ python scripts/main.py restart
 # 检查服务状态
 python scripts/main.py status
 
+# 以JSON格式查看状态（便于脚本处理）
+python scripts/main.py status -j
+
+# 检查指定端口的状态
+python scripts/main.py status -p 8080
+
 # 创建全量备份
 python scripts/main.py backup full
+
+# 清理30天前的旧备份
+python scripts/main.py backup clean -d 30
 
 # 日志轮转（保留7个轮转文件）
 python scripts/main.py logs rotate -k 7
@@ -137,6 +146,7 @@ python scripts/main.py status [options]
 
 **选项：**
 - `-j, --json`           以JSON格式输出
+- `-p, --port <number>`  指定要检查的端口（默认：8000）
 - `-h, --help`           显示帮助信息
 
 **示例：**
@@ -146,6 +156,9 @@ python scripts/main.py status
 
 # 查看状态（JSON格式，便于脚本处理）
 python scripts/main.py status -j
+
+# 检查指定端口的状态
+python scripts/main.py status -p 8080
 ```
 
 **状态报告内容：**
@@ -166,6 +179,7 @@ python scripts/main.py logs <subcommand> [options]
 - `rotate`      执行日志轮转
 - `clean`       清理旧日志
 - `list`        列出日志文件
+- `compress`    压缩日志文件
 - `status`      查看日志系统状态
 
 **示例：**
@@ -178,6 +192,12 @@ python scripts/main.py logs clean -d 30
 
 # 列出所有日志文件（显示大小）
 python scripts/main.py logs list -s
+
+# 压缩日志文件（默认压缩所有未压缩日志）
+python scripts/main.py logs compress
+
+# 压缩指定日志文件
+python scripts/main.py logs compress -f logs/django.log
 
 # 查看日志系统状态
 python scripts/main.py logs status
@@ -268,10 +288,11 @@ python scripts/deploy.py --env dev --rollback backup_20240101_120000.tar.gz
 
 **特性：**
 - ✅ 环境参数配置（开发/测试/生产）
-- ✅ 错误处理与自动回滚机制
+- ✅ 错误处理与自动回滚机制（失败后可选择回滚到部署前备份）
 - ✅ 部署日志记录（logs/deploy_logs/）
 - ✅ 版本控制检查
 - ✅ 部署前自动备份
+- ✅ 配置环境变量时智能合并，保留已有凭据（数据库密码、API密钥等不受影响）
 - ✅ 生产环境部署确认
 - ✅ 详细的执行状态反馈
 
@@ -333,7 +354,11 @@ python scripts/main.py start -d
 python scripts/main.py logs rotate -k 7
 ```
 
-### 4. 备份策略
+### 4. .env 环境变量配置
+
+`deploy.py` 配置环境时会**合并**现有 `.env` 文件，保留已存在的数据库凭据、API 密钥和 `SECRET_KEY`，仅覆盖部署相关的配置项（环境名称、调试模式、端口号）。如需重置凭据，请手动编辑 `.env` 文件。
+
+### 5. 备份策略
 
 推荐备份策略：
 - **每日**：创建增量备份

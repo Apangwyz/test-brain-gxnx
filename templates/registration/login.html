@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}TestBrain - 登录{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-header text-center bg-primary text-white">
+                    <h4 class="mb-0">TestBrain 登录</h4>
+                </div>
+                <div class="card-body">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            用户名或密码错误，请重试。
+                        </div>
+                    {% endif %}
+
+                    {% if next and not user.is_authenticated %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            请先登录后继续操作。
+                        </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'login' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">用户名</label>
+                            <input type="text" name="username" id="id_username"
+                                   class="form-control" placeholder="请输入用户名"
+                                   required autofocus>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">密码</label>
+                            <input type="password" name="password" id="id_password"
+                                   class="form-control" placeholder="请输入密码"
+                                   required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-sign-in-alt"></i> 登 录
+                            </button>
+                        </div>
+                        <input type="hidden" name="next" value="{{ next }}">
+                    </form>
+                </div>
+                <div class="card-footer text-center text-muted small">
+                    测试用例智能管理平台
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,7 +5,8 @@ from apps.llm.base import BaseLLMService
 from apps.knowledge.service import KnowledgeService
 from .prompts import TestCaseGeneratorPrompt
 from apps.utils.logger_manager import get_logger
-import re
+from .test_case_schema import extract_json_str
+import json
 class TestCaseGeneratorAgent:
     """测试用例生成Agent"""
     
@@ -133,14 +134,30 @@ class TestCaseGeneratorAgent:
         return ""
     
     def _validate_test_cases(self, test_cases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """验证并修复测试用例格式
+        """验证并修复测试用例格式（使用 Pydantic 模型校验）
         
         Args:
             test_cases: 原始测试用例列表
             
         Returns:
             验证并修复后的测试用例列表
-        """  
+        """
+        # 尝试使用 Pydantic 模型进行结构化验证
+        from .test_case_schema import GeneratedTestCase
+        pydantic_valid = []
+        for tc in test_cases:
+            try:
+                validated = GeneratedTestCase(**tc)
+                pydantic_valid.append({
+                    "description": validated.description,
+                    "test_steps": validated.test_steps,
+                    "expected_results": validated.expected_results,
+                })
+            except Exception:
+                pass
+        if pydantic_valid:
+            self.logger.info(f"Pydantic 校验通过 {len(pydantic_valid)}/{len(test_cases)} 条用例")
+            return pydantic_valid
         valid_test_cases = []
         required_fields = {"description", "test_steps", "expected_results"}
         
@@ -201,27 +218,86 @@ class TestCaseGeneratorAgent:
         return valid_test_cases
             
     def _extract_json_from_response(self, response: str) -> str:
-        """从响应中提取JSON部分并进行基础修复
-        
+        """从LLM响应中健壮地提取JSON数组，支持多种格式
+
         Args:
             response: 原始响应字符串
-            
-        Returns:
-            修复后的JSON字符串
-        """
-        # 使用正则表达式提取JSON字符串
-        result = ""
-        right_format_pattern = r'^\[([\s\S]*)\]$'
-        match = re.search(right_format_pattern, response)
-        if match:
-            result = match.group(0)  # 使用group(0)返回完整匹配，包含方括号
-        else:
-            #从字符串中找到最后一个出现},的位置，然后取},前面的内容,并补全]和json结束标记```
-            last_comma_index = response.rfind('},')
-            if last_comma_index != -1:
-                result = response[:last_comma_index+1] + ']'
-        # self.logger.info(f"_extract_json_from_response函数处理结果: \n{'='*50}\n{result}\n{'='*50}")    
-        return result
-        
 
-            
+        Returns:
+            修复后的JSON字符串（应为合法JSON数组）
+        """
+        import re as _re
+
+        if not response or not response.strip():
+            return ""
+
+        text = response.strip()
+
+        # 1. 尝试提取 ```json ... ``` 或 ``` ... ``` 代码块
+        code_block = _re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+        if code_block:
+            text = code_block.group(1).strip()
+
+        # 2. 尝试直接解析为合法JSON
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+
+        # 3. 尝试提取最外层的 [...] 数组，考虑嵌套
+        start = text.find("[")
+        if start != -1:
+            depth = 0
+            end = -1
+            for i in range(start, len(text)):
+                if text[i] == "[" :
+                    depth += 1
+                elif text[i] == "]":
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+            if end != -1:
+                candidate = text[start:end]
+                try:
+                    json.loads(candidate)
+                    return candidate
+                except json.JSONDecodeError:
+                    fixed = self._repair_json(candidate)
+                    if fixed:
+                        return fixed
+
+        # 4. 拖尾修复：从最后一个完整对象处截断
+        last_obj_end = max(text.rfind("}"), text.rfind("]"))
+        if last_obj_end != -1:
+            arr_start = text.find("[")
+            if arr_start != -1 and arr_start < last_obj_end:
+                candidate = text[arr_start:last_obj_end + 1]
+                if not candidate.endswith("]"):
+                    candidate += "]"
+                try:
+                    json.loads(candidate)
+                    return candidate
+                except json.JSONDecodeError:
+                    pass
+
+        return ""
+
+    def _repair_json(self, text: str) -> str:
+        """尝试修复常见的JSON格式问题"""
+        import re as _re
+
+        fixed = text
+
+        # 移除尾随逗号（对象或数组最后一个元素后）
+        fixed = _re.sub(r",\s*([\]}])", r"\1", fixed)
+
+        # 修复未加引号的属性名
+        fixed = _re.sub(r"(?<![\s:,\w])(\w+)\s*:", r"\":", fixed)
+
+        try:
+            json.loads(fixed)
+            return fixed
+        except json.JSONDecodeError:
+            return ""

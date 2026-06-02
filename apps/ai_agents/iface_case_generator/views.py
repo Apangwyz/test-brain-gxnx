@@ -16,6 +16,9 @@ import yaml
 
 
 
+from django.contrib.auth.decorators import login_required
+
+
 logger = get_logger(__name__)
 
 # 获取LLM配置

@@ -131,53 +131,15 @@ class KnowledgeConfig(AppConfig):
    python manage.py migrate
    ```
 
-4. **启动服务**
-   ```bash
-   python manage.py runserver 0.0.0.0:8000
-   ```
 
-5. **启动java源码分析服务**
-   ```bash
-   mvn spring-boot:run -Dspring-boot.run.profiles=dev
-   ```
-  #TODO: 仓库地址待提供
-
-
-6. **访问页面**
-   - Web 控制台：http://127.0.0.1:8000/
-
-
-## 🧠 Agent 详情
-
-| Agent | 入口页面 | 描述 |
-| --- | --- | --- |
-| 测试用例生成 | `/test_case_generator/` | 根据需求文本生成结构化测试用例列表，支持自定义设计方法、测试类型、生成条数，并可保存到数据库。
-| 测试用例评审 | `/test_case_reviewer/` | 对既有用例进行评审，输出风险 & 改进建议。
-| PRD 分析 | `/prd_analyzer/` | 解析 PRD Markdown，产出测试点与测试场景；内置 JSON 修复逻辑以提升容错。
-| 接口用例生成 | `/iface_case_generator/` | 根据接口定义生成测试思路，支持模型切换。
-| Java 代码分析 | `/java_code_analyzer/` | 静态分析 Java 源码，输出潜在缺陷与测试关注点。
-
-## 📚 知识库最佳实践
-
-为了让 LLM 生成的测试用例更加贴合业务，建议：
-
-1. 上传与需求相关的文档：PRD、设计文档、API 文档、过往测试用例、UI 设计稿等。
-2. 确保文件命名规范、内容清晰，便于向量检索与上下文匹配。
-3. 使用知识库检索功能，确认相关内容已写入 Milvus 并能搜索到。
-
-## 🧪 常见问题（FAQ）
-
-**Q1. 为什么日志里多次出现 “正在加载 BGE-M3 模型…”？**  
-默认 `runserver` 会启动监视进程 + 工作进程，两次初始化属正常现象。上线部署（Gunicorn/Uvicorn）或使用 `--noreload` 可验证单例。
-
-**Q2. LLM 输出的 JSON 仍解析失败怎么办？**  
-系统已内置 `_basic_json_fix()` 处理未转义换行、中文引号、缺逗号等常见问题。如仍失败，建议检查 Prompt 或手动修正模型输出。
-
-**Q3. 如何新增模型供应商？**  
-在 `LLM_PROVIDERS` 中新增配置，并在 `LLMServiceFactory` 里实现创建逻辑。随后可在 `AGENT_LLM_DEFAULTS` 或前端下拉中引用。
-
-**Q4. 是否支持异步调用？**  
-`TestCaseGeneratorAgent` 已支持 `async_generate`，可在异步视图或任务中直接 `await` 调用，LangChain 内部使用 `ainvoke`。
+3a. **创建管理员用户（可选）**
+   > 默认凭据：admin / admin123
+   >
+   > 登录入口：http://127.0.0.1:8000/accounts/login/
+   >
+   > ⚠️ 首次登录后请及时修改密码。
+   > 使用 @login_required 保护页面，未登录时会被重定向到登录页。
+   > 外部工具调用 JSON API 需在请求头传入 `X-API-Key`（通过环境变量 `API_KEY` 配置）。
 
 ## 📼 演示视频
 

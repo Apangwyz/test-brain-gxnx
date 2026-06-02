@@ -309,14 +309,14 @@ def list_backups(show_size=False):
             mtime = datetime.fromtimestamp(os.path.getmtime(backup))
             size = os.path.getsize(backup)
             size_str = f"{size / 1024:.2f} KB" if size < 1024 * 1024 else f"{size / (1024 * 1024):.2f} MB"
-            backup_type = "全量" if backup.startswith('full_') else "增量"
+            backup_type = "全量" if os.path.basename(backup).startswith('full_') else "增量"
             print(f"{os.path.basename(backup):<40} {mtime.strftime('%Y-%m-%d %H:%M:%S'):<20} {size_str:<10} {backup_type}")
     else:
         print(f"{'文件名':<50} {'创建时间':<20} {'类型'}")
         print("-" * 80)
         for backup in backups:
             mtime = datetime.fromtimestamp(os.path.getmtime(backup))
-            backup_type = "全量" if backup.startswith('full_') else "增量"
+            backup_type = "全量" if os.path.basename(backup).startswith('full_') else "增量"
             print(f"{os.path.basename(backup):<50} {mtime.strftime('%Y-%m-%d %H:%M:%S'):<20} {backup_type}")
     
     print("\n" + "=" * 60)
@@ -330,8 +330,8 @@ def show_backup_status():
     backups = glob.glob(os.path.join(backup_dir, '*.tar.gz'))
     
     total_size = sum(os.path.getsize(b) for b in backups)
-    full_backups = [b for b in backups if b.startswith('full_')]
-    inc_backups = [b for b in backups if b.startswith('inc_')]
+    full_backups = [b for b in backups if os.path.basename(b).startswith('full_')]
+    inc_backups = [b for b in backups if os.path.basename(b).startswith('inc_')]
     
     print("=" * 60)
     print("                  备份系统状态报告")

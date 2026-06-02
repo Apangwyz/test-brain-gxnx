@@ -24,7 +24,6 @@ from django.views.decorators.csrf import csrf_exempt
 from ..utils.sse_bus import get_queue
 
 
-@csrf_exempt
 def stream_logs(request):
     task_id = request.GET.get("task_id")
     if not task_id:

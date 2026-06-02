@@ -60,6 +60,11 @@
         }
 
         /* 主内容区域样式 */
+        .main-content-no-sidebar {
+            margin-left: 0;
+            padding: 20px 30px;
+        }
+
         .main-content {
             margin-left: 200px;
             padding: 20px 30px;
@@ -83,6 +88,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    {% if user.is_authenticated %}
     <!-- 左侧导航栏 -->
     <nav class="sidebar">
         <!-- 品牌标题 -->
@@ -156,9 +162,10 @@
             </ul>
         </div>
     </nav>
+    {% endif %}
 
     <!-- 主内容区域 -->
-    <main class="main-content">
+    <main class="{% if user.is_authenticated %}main-content{% else %}main-content-no-sidebar{% endif %}">
         {% block content %}{% endblock %}
     </main>
 

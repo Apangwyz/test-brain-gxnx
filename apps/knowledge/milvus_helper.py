@@ -10,10 +10,6 @@ try:
 except ImportError:
     Document = None
 
-from unstructured.partition.auto import partition
-from unstructured.partition.html import partition_html
-from unstructured.partition.text import partition_text
-from unstructured.chunking.title import chunk_by_title
 
 logger = get_logger(__name__)
 
@@ -87,6 +83,8 @@ def process_single_word(file_path):
     """
     Word 文件解析主入口
     """
+    from unstructured.partition.auto import partition
+    from unstructured.chunking.title import chunk_by_title
     file_ext = os.path.splitext(file_path)[1].lower()
     is_confluence = False
 
@@ -110,6 +108,7 @@ def process_single_word(file_path):
                 logger.warning(f"⚠️ Confluence清洗后内容为空")
                 return []
 
+            from unstructured.partition.text import partition_text
             elements = partition_text(text=pure_text)
             chunks = chunk_by_title(elements=elements, max_characters=3000, combine_text_under_n_chars=500)
             logger.info(f"Confluence文件解析完成，共 {len(chunks)} 个块")
@@ -196,6 +195,8 @@ def process_markdown_file(file_path):
 
 def process_singel_file(file_path):
     """
+    from unstructured.partition.auto import partition
+    from unstructured.chunking.title import chunk_by_title
     总入口函数
     """
     logger.info(f"开始处理文件: {file_path}")

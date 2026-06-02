@@ -8,6 +8,7 @@ import os
 import sys
 import argparse
 import time
+import subprocess
 
 # 添加脚本目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +63,8 @@ def main():
         stop_args.append('-f')
     
     stop_script = os.path.join(os.path.dirname(__file__), 'stop.py')
-    exit_code = os.system(f'python "{stop_script}" {" ".join(stop_args)}')
+    result = subprocess.run([sys.executable, stop_script] + stop_args, capture_output=True, text=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+    exit_code = result.returncode
     
     if exit_code != 0 and was_running:
         logger.error("服务停止失败")
@@ -84,7 +86,8 @@ def main():
         start_args.extend(['-e', args.env])
     
     start_script = os.path.join(os.path.dirname(__file__), 'start.py')
-    exit_code = os.system(f'python "{start_script}" {" ".join(start_args)}')
+    result = subprocess.run([sys.executable, start_script] + start_args, capture_output=True, text=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+    exit_code = result.returncode
     
     if exit_code != 0:
         logger.error("服务启动失败")

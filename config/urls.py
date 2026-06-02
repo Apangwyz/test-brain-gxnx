@@ -16,9 +16,9 @@ urlpatterns = [
     path('prd_analyzer/', include('apps.ai_agents.prd_analyzer.urls')),
     path('test_case_generator/', include('apps.ai_agents.test_case_generator.urls')),
     path('test_case_reviewer/', include('apps.ai_agents.test_case_reviewer.urls')),
-
+    path('accounts/', include('django.contrib.auth.urls')),
 ]
 
 # 添加静态文件和媒体文件服务（开发环境）
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) 
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -26,17 +26,18 @@ if str(BASE_DIR) not in sys.path:
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # 使用环境变量注入SECRET_KEY，确保生产环境安全
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key-change-in-production')
+# 强制从环境变量读取，不能依赖不安全的后备值
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # 根据环境变量设置DEBUG模式，生产环境应设置为False
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # 允许的主机列表，生产环境应限制为具体域名
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # 是否启用Milvus
-ENABLE_MILVUS = False
+ENABLE_MILVUS = os.environ.get("ENABLE_MILVUS", "false").lower() == "true"
 
 # 添加上传测试用例文件目录配置
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
@@ -76,6 +77,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
 
 ROOT_URLCONF = 'config.urls'
 
@@ -133,6 +136,16 @@ STATICFILES_DIRS = [
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ==================== 认证配置 ====================
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# API Key 用于外部工具调用 JSON API 时的认证
+API_KEY = os.getenv('API_KEY', '')
+
+
 
 # LLM提供商配置
 LLM_PROVIDERS = {
@@ -206,7 +219,7 @@ EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "aliyun")
 
 # 阿里云向量模型配置
 ALIYUN_EMBEDDING_CONFIG = {
-    'api_key': os.getenv('QWEN_API_KEY', 'sk-7a0c2f3723be46a3a24ce72e8645b621'),
+    'api_key': os.getenv('QWEN_API_KEY'),
     'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
     'model': 'text-embedding-v4',
     'batch_size': 10,  # 阿里云限制最大10条  # 阿里云限制每次最多25条

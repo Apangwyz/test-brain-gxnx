@@ -2,10 +2,19 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+
+def boot_env():
+    """加载 .env 文件到环境变量（在启动 Django 前执行）"""
+    env_path = Path(__file__).resolve().parent / ".env"
+    load_dotenv(env_path)
 
 
 def main():
     """Run administrative tasks."""
+    boot_env()
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     try:
         from django.core.management import execute_from_command_line
@@ -19,4 +28,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main() 
+    main()

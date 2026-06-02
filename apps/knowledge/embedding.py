@@ -1,6 +1,5 @@
 from typing import List, Union
 from abc import ABC, abstractmethod
-from sentence_transformers import SentenceTransformer
 import os
 import time
 import logging
@@ -33,6 +32,7 @@ class BGEM3Embedder(BaseEmbedder):
         """
         logger.info("正在加载BGE-M3模型...")
         self.model = SentenceTransformer(model_name)
+        from sentence_transformers import SentenceTransformer
         
     def get_embeddings(self, texts: Union[str, List[str]], show_progress_bar: bool = False) -> List[List[float]]:
         """获取文本的嵌入向量"""

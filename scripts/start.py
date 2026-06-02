@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils import (
     setup_logger, load_env_file, check_python_version, check_virtualenv,
     run_command, write_pid, is_process_running, print_status, PROJECT_ROOT,
-    read_pid, LOG_DIR
+    read_pid, remove_pid_file, LOG_DIR
 )
 
 logger = setup_logger('start_script')
@@ -98,26 +98,29 @@ def start_server(port, daemon=False):
     python_path = sys.executable
     
     if daemon:
-        # 守护进程模式
+        # 守护进程模式：使用临时文件捕获 $!，替代脆弱的 ps | grep
+        import tempfile
+        pid_tmp = tempfile.mktemp()
+        log_path = os.path.join(LOG_DIR, "django.log")
         cmd = (
             f'nohup {python_path} manage.py runserver 0.0.0.0:{port} '
-            f'> {os.path.join(LOG_DIR, "django.log")} 2>&1 &'
+            f'> {log_path} 2>&1 &\n'
+            f'sleep 1 && echo $! > {pid_tmp}'
         )
-    else:
-        # 前台模式
-        cmd = f'{python_path} manage.py runserver 0.0.0.0:{port}'
-    
-    success, stdout, stderr = run_command(cmd)
-    
-    if daemon:
-        # 守护进程模式需要等待一下再检查
-        time.sleep(3)
-        # 获取后台进程PID
-        success, stdout, stderr = run_command(
-            f'ps aux | grep "runserver 0.0.0.0:{port}" | grep -v grep | awk "{{print $2}}"'
-        )
-        if success and stdout.strip():
-            pid = int(stdout.strip())
+        shell_result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT,
+                                      capture_output=True, text=True)
+        time.sleep(2)
+        
+        # 从临时文件读取实际 Python 进程 PID
+        pid = None
+        if os.path.exists(pid_tmp):
+            with open(pid_tmp, 'r') as pf:
+                raw = pf.read().strip()
+            os.unlink(pid_tmp)
+            if raw.isdigit():
+                pid = int(raw)
+        
+        if pid and is_process_running(pid):
             write_pid(pid)
             logger.info(f"Django服务器启动成功，PID: {pid}")
             print_status(f"Django服务器启动成功，PID: {pid}", 'success')
@@ -127,7 +130,8 @@ def start_server(port, daemon=False):
             print_status("Django服务器启动失败，请检查日志", 'error')
             return False
     else:
-        # 前台模式直接执行
+        # 前台模式
+        cmd = f'{python_path} manage.py runserver 0.0.0.0:{port}'
         process = subprocess.Popen(cmd, shell=True, cwd=PROJECT_ROOT)
         write_pid(process.pid)
         logger.info(f"Django服务器启动成功，PID: {process.pid}")
@@ -141,6 +145,8 @@ def start_server(port, daemon=False):
             process.terminate()
             process.wait()
             print_status("服务器已停止", 'info')
+            # 前台模式退出后清理 PID 文件
+            remove_pid_file()
         
         return True
 

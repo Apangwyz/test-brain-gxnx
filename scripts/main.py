@@ -56,10 +56,12 @@ def parse_args():
     restart_parser.add_argument('-e', '--env', help='环境变量文件')
     restart_parser.add_argument('-p', '--port', type=int, default=8000, help='端口')
     restart_parser.add_argument('-f', '--force', action='store_true', help='强制重启')
+    restart_parser.add_argument('-w', '--wait', type=int, default=5, help='停止后等待秒数再启动')
     
     # status 命令
     status_parser = subparsers.add_parser('status', help='检查状态')
     status_parser.add_argument('-j', '--json', action='store_true', help='JSON输出')
+    status_parser.add_argument('-p', '--port', type=int, default=8000, help='检查指定端口')
     
     # logs 命令
     logs_parser = subparsers.add_parser('logs', help='日志管理')
@@ -67,6 +69,7 @@ def parse_args():
     logs_sub.add_parser('rotate', help='日志轮转')
     logs_sub.add_parser('clean', help='清理旧日志')
     logs_sub.add_parser('list', help='列出日志文件')
+    logs_sub.add_parser('compress', help='压缩日志文件')
     logs_sub.add_parser('status', help='日志状态')
     
     # backup 命令
@@ -74,23 +77,26 @@ def parse_args():
     backup_sub = backup_parser.add_subparsers(dest='backup_cmd')
     backup_sub.add_parser('full', help='全量备份')
     backup_sub.add_parser('incremental', help='增量备份')
+    backup_sub.add_parser('restore', help='恢复备份')
     backup_sub.add_parser('list', help='列出备份')
     backup_sub.add_parser('status', help='备份状态')
+    backup_sub.add_parser('clean', help='清理旧备份')
     
-    return parser.parse_args()
+    return parser.parse_known_args()
 
 def run_script(script_name, args_list):
-    """运行指定脚本"""
+    """运行指定脚本，使用 subprocess.run 避免 shell 转义问题"""
+    import subprocess
     script_path = os.path.join(os.path.dirname(__file__), f"{script_name}.py")
-    cmd = ['python', script_path] + args_list
+    cmd = [sys.executable, script_path] + args_list
     
     print_status(f"执行: {' '.join(cmd)}", 'info')
-    exit_code = os.system(' '.join(cmd))
-    return exit_code == 0
+    result = subprocess.run(cmd)
+    return result.returncode == 0
 
 def main():
     """主函数"""
-    args = parse_args()
+    args, extra_args = parse_args()
     
     if not args.command:
         print("请指定运维命令")
@@ -108,6 +114,7 @@ def main():
                 args_list.extend(['-p', str(args.port)])
             if args.daemon:
                 args_list.append('-d')
+            args_list.extend(extra_args)
             run_script('start', args_list)
         
         elif args.command == 'stop':
@@ -116,6 +123,7 @@ def main():
                 args_list.append('-f')
             if args.timeout != 30:
                 args_list.extend(['-t', str(args.timeout)])
+            args_list.extend(extra_args)
             run_script('stop', args_list)
         
         elif args.command == 'restart':
@@ -126,24 +134,32 @@ def main():
                 args_list.extend(['-p', str(args.port)])
             if args.force:
                 args_list.append('-f')
+            if args.wait != 5:
+                args_list.extend(['-w', str(args.wait)])
+            args_list.extend(extra_args)
             run_script('restart', args_list)
         
         elif args.command == 'status':
             args_list = []
             if args.json:
                 args_list.append('-j')
+            if args.port != 8000:
+                args_list.extend(['-p', str(args.port)])
+            args_list.extend(extra_args)
             run_script('status', args_list)
         
         elif args.command == 'logs':
             args_list = []
             if args.logs_cmd:
                 args_list.append(args.logs_cmd)
+            args_list.extend(extra_args)
             run_script('logs', args_list)
         
         elif args.command == 'backup':
             args_list = []
             if args.backup_cmd:
                 args_list.append(args.backup_cmd)
+            args_list.extend(extra_args)
             run_script('backup', args_list)
         
         else:

@@ -23,6 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='检查TestBrain项目运行状态')
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     parser.add_argument('-j', '--json', action='store_true', help='JSON格式输出')
+    parser.add_argument('-p', '--port', type=int, default=8000, help='检查指定端口')
     return parser.parse_args()
 
 def get_process_info(pid):
@@ -213,7 +214,7 @@ def main():
     django_status = check_django_status()
     
     # 检查端口
-    port_status = check_port_listening(8000)
+    port_status = check_port_listening(args.port)
     
     # 检查系统资源
     disk_usage = check_disk_usage()

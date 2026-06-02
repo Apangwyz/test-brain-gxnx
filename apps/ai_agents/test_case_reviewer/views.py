@@ -17,6 +17,9 @@ from apps.llm.utils import get_agent_llm_configs
 
 
 
+from django.contrib.auth.decorators import login_required
+
+
 logger = get_logger(__name__)
 
 def parse_review_result(review_content):
@@ -205,6 +208,7 @@ knowledge_service = get_knowledgeService_instance()
 
 
 # @login_required 先屏蔽登录
+@login_required
 def review_view(request):
     """页面-测试用例评审页面视图"""
     # 获取所有测试用例
