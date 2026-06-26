@@ -4,42 +4,45 @@
 {% block title %}TestBrain - 知识库管理{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        添加知识条目
-    </div>
-    <div class="card-body">
-        <form id="add-knowledge-form">
-            <div class="form-group">
-                <label for="knowledge-title">标题:</label>
-                <input type="text" id="knowledge-title" name="title" class="form-control" required data-error-message="请输入知识条目标题">
-            </div>
-            
-            <div class="form-group">
-                <label for="knowledge-content">内容:</label>
-                <textarea id="knowledge-content" name="content" class="form-control" rows="10" required data-error-message="请输入知识条目内容"></textarea>
-            </div>
-            
-            <div class="text-right">
-                <button type="submit" class="btn btn-primary">添加知识条目</button>
-            </div>
-        </form>
-    </div>
+<div class="page-header">
+    <h4>知识库管理</h4>
+    <p>管理知识条目，为 AI 测试用例生成提供上下文支撑</p>
 </div>
 
-<div class="card mt-3">
-    <div class="card-header">
-        知识库列表
-    </div>
-    <div class="card-body">
-        <div class="form-group">
-            <input type="text" id="knowledge-search" class="form-control" placeholder="搜索知识库...">
+<div class="row">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">添加知识条目</div>
+            <div class="card-body">
+                <form id="add-knowledge-form">
+                    <div class="form-group">
+                        <label for="knowledge-title">标题<span class="required-mark">*</span></label>
+                        <input type="text" id="knowledge-title" name="title" class="form-control" placeholder="输入知识条目标题" required data-error-message="请输入知识条目标题">
+                    </div>
+                    <div class="form-group">
+                        <label for="knowledge-content">内容<span class="required-mark">*</span></label>
+                        <textarea id="knowledge-content" name="content" class="form-control" rows="10" placeholder="输入知识条目内容" required data-error-message="请输入知识条目内容"></textarea>
+                    </div>
+                    <div class="text-right">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> 添加知识条目</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        
-        <div id="knowledge-list">
-            <div class="text-center">
-                <div class="spinner"></div>
-                <p>加载知识库...</p>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">知识库列表</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <input type="text" id="knowledge-search" class="form-control" placeholder="搜索知识库...">
+                </div>
+                <div id="knowledge-list">
+                    <div class="text-center py-5">
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-secondary); margin-top: 12px;">加载知识库...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -48,4 +51,4 @@
 
 {% block extra_js %}
 <script src="{% static 'js/knowledge.js' %}"></script>
-{% endblock %} 
+{% endblock %}

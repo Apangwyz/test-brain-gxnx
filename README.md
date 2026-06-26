@@ -8,6 +8,7 @@ TestBrain 通过 Django + LangChain + 多模型接入的方式，提供以下核
 
 - **多 Agent 协同**：针对不同测试场景提供专用智能体（测试用例生成、评审、PRD 分析、接口用例生成、Java 代码分析等）。
 - **多 LLM 供应商**：支持 DeepSeek、Qwen 等模型，并可按 Agent 维度配置默认模型/参数，前端也可手动切换。
+- **Provider 降级容错**：支持按优先级配置 Provider 列表，当首选 Provider 调用失败时自动降级到下一个可用 Provider，提升系统可用性。
 - **知识库加持**：集成 Milvus 向量数据库与 BGEM3 Embedding，支持文档解析、入库、向量检索与上下文增强。
 - **可扩展架构**：模块化的 LLM 工厂、Agent 封装、知识库服务，便于新增模型、Agent 或自定义流程。
 
@@ -16,7 +17,7 @@ TestBrain 通过 Django + LangChain + 多模型接入的方式，提供以下核
 | 模块 | 功能 | 关键实现 |
 | --- | --- | --- |
 | **AI Agents** | - `test_case_generator`：根据需求生成用例（支持同步/异步调用 LLM）<br>- `test_case_reviewer`：对生成的用例进行评审与打分<br>- `prd_analyzer`：解析 PRD，提炼测试点/场景（内置 JSON 修复兜底）<br>- `iface_case_generator`：基于接口描述生成测试用例<br>- `java_code_analyzer`：分析 Java 代码并梳理潜在测试点 | `apps/ai_agents/*`，配合统一的 Prompt 管理与服务调用 |
-| **LLM 集成** | - `LLMServiceFactory` 动态创建模型客户端<br>- `get_agent_llm_configs()` 返回 Agent 默认模型与 Provider 列表<br>- 支持同步 `invoke` 与异步 `ainvoke` | `apps/llm/base.py` / `apps/llm/utils.py` |
+| **LLM 集成** | - `LLMServiceFactory` 动态创建模型客户端<br>- `get_agent_llm_configs()` 返回 Agent 默认模型与 Provider 列表<br>- 支持同步 `invoke` 与异步 `ainvoke`<br>- `FallbackLLMWrapper` 按优先级自动降级<br>- `LLMProviderPriorityManager` 配置驱动优先级 | `apps/llm/base.py` / `apps/llm/config_manager.py` |
 | **知识库** | - `KnowledgeConfig.ready()` 预热 Milvus + BGEM3 单例<br>- `KnowledgeService` 封装向量入库、检索、相似度匹配<br>- 支持多格式文档解析、批量嵌入与检索 | `apps/knowledge/*` |
 | **核心应用** | - Web 页面与 API（Django View）<br>- 用例管理（`TestCase` 模型）<br>- 配置管理、日志、权限预留 | `apps/core/*` |
 
@@ -60,6 +61,12 @@ TestBrain/
 DEEPSEEK_API_KEY=your_key
 QWEN_API_KEY=your_key
 
+# LLM Provider 优先级（按优先级降级，逗号分隔）
+# 当首选 Provider 调用失败时，自动按此列表顺序降级
+# 可选：按 Agent 覆盖优先级（AGENT_PRIORITY__{agent_name}）
+LLM_PROVIDER_PRIORITY=qwen,deepseek
+# AGENT_PRIORITY__requirement_analyzer=deepseek,qwen
+
 # 数据库
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
@@ -89,10 +96,24 @@ AGENT_LLM_DEFAULTS = {
     "prd_analyzer": {"provider": "deepseek"},
     ...
 }
+
+# Provider 优先级配置（降级容错）
+# 当首选 Provider 调用失败时，按此列表顺序自动降级
+# 环境变量可覆盖此配置
+LLM_PROVIDER_PRIORITY = {
+    "default": ["qwen", "deepseek"],
+    "requirement_analyzer": ["deepseek", "qwen"],
+}
 ```
 
 - 前端使用 `providers` 渲染下拉列表，可手动切换模型。
 - 后端通过 `get_agent_llm_configs(agent_name)` 获取默认 Provider 及配置。
+- **降级容错**：通过 `LLMServiceFactory.create_with_fallback()` 创建的 LLM 服务，在调用失败时会按 `LLM_PROVIDER_PRIORITY` 配置的优先级顺序自动降级到下一个可用 Provider。
+- **优先级解析链**（高 → 低）：
+  1. 环境变量 `AGENT_PRIORITY__{agent_name}`（按 Agent 覆盖）
+  2. 环境变量 `LLM_PROVIDER_PRIORITY`（全局默认）
+  3. `settings.LLM_PROVIDER_PRIORITY["default"]`
+  4. 回退：仅使用 `AGENT_LLM_DEFAULTS` 中配置的单一 Provider
 
 ### 3. 知识库单例初始化
 

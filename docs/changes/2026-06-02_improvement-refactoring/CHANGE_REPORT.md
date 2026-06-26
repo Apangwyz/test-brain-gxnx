@@ -98,7 +98,7 @@
 
 执行了 8 组自动化测试，涵盖核心进度跟踪、JSON 提取、模块导入和进度管理器同步。全部通过。
 
-详细测试报告见 `docs/changes/2026-06-02_improvement-refactoring/TEST_REPORT.md`。
+详细测试报告见 `docs/test_reports/2026-06-02_improvement-refactoring-test-report.md`。
 
 ---
 

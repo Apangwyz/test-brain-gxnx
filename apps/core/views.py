@@ -18,11 +18,10 @@ from apps.utils.logger_manager import get_logger
 logger = get_logger(__name__)
 
 
-# 获取LLM配置
-llm_config = getattr(settings, 'LLM_PROVIDERS', {})
-DEFAULT_PROVIDER = llm_config.get('default_provider', 'deepseek')
-PROVIDERS = {k: v for k, v in llm_config.items() if k != 'default_provider'}
-DEFAULT_LLM_CONFIG = PROVIDERS.get(DEFAULT_PROVIDER, {})
+# 获取LLM配置（通过中心化管理器）
+from apps.llm.config_manager import get_llm_config, get_provider_config
+DEFAULT_PROVIDER, PROVIDERS = get_llm_config()
+DEFAULT_LLM_CONFIG = get_provider_config()
 
 
 llm_service = None
@@ -31,7 +30,7 @@ llm_service = None
 def get_llm_service():
     global llm_service
     if llm_service is None:
-        llm_service = LLMServiceFactory.create(provider=DEFAULT_PROVIDER)
+        llm_service = LLMServiceFactory.create_with_fallback(agent_name="core")
     return llm_service
 
 

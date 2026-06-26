@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}测试报告{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h4>📊 测试报告</h4>
+    <p>查看和管理测试执行报告</p>
+</div>
+
+<div class="row" id="reportList"></div>
+
+<script>
+$(document).ready(function() {
+    $.get('/api/reports/', function(resp) {
+        let html = '';
+        if (!resp.reports || resp.reports.length === 0) {
+            html = '<div class="col-12"><div class="card"><div class="card-body text-center text-muted">暂无测试报告</div></div></div>';
+        } else {
+            resp.reports.forEach(function(r) {
+                const rate = r.pass_rate;
+                const color = rate >= 90 ? '#22c55e' : rate >= 70 ? '#f59e0b' : '#ef4444';
+                html += '<div class="col-md-4 mb-4"><div class="card"><div class="card-body">' +
+                    '<h6>' + r.title + '</h6>' +
+                    '<div style="color: ' + color + '; font-size: 24px; font-weight: 700;">' + rate + '%</div>' +
+                    '<small class="text-muted">' + (r.system_name || '') + ' | ' + r.created_at + '</small>' +
+                    '<div style="margin-top: 12px;"><a href="/reports/' + r.id + '/" class="btn btn-sm btn-primary">查看详情</a></div>' +
+                    '</div></div></div>';
+            });
+        }
+        $('#reportList').html(html);
+    });
+});
+</script>
+{% endblock %}

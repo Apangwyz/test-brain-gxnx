@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h4>{{ report.title }}</h4>
+    <p>{{ report.created_at|date:"Y-m-d H:i" }}</p>
+    <div class="btn-group">
+        <button class="btn btn-success" id="exportPdfBtn">📥 导出 PDF</button>
+    </div>
+</div>
+
+{% with data=report_data %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5>📊 执行概览</h5>
+        {% with summary=data.execution_summary %}
+        <div class="row text-center" style="margin: 16px 0;">
+            <div class="col"><strong style="font-size: 24px;">{{ summary.total }}</strong><br><small>总计</small></div>
+            <div class="col text-success"><strong style="font-size: 24px;">{{ summary.passed }}</strong><br><small>通过</small></div>
+            <div class="col text-danger"><strong style="font-size: 24px;">{{ summary.failed }}</strong><br><small>失败</small></div>
+            <div class="col text-warning"><strong style="font-size: 24px;">{{ summary.skipped }}</strong><br><small>跳过</small></div>
+            <div class="col text-muted"><strong style="font-size: 24px;">{{ summary.error }}</strong><br><small>异常</small></div>
+        </div>
+        <div class="progress" style="height: 24px;">
+            <div class="progress-bar bg-success" style="width: {{ summary.pass_rate }}%">
+                通过率 {{ summary.pass_rate }}%
+            </div>
+        </div>
+        {% endwith %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5>🔴 失败用例详情</h5>
+        {% if data.failed_details %}
+        <table class="table table-sm">
+            <thead><tr><th>优先级</th><th>用例标题</th><th>错误信息</th></tr></thead>
+            <tbody>
+            {% for fd in data.failed_details %}
+            <tr>
+                <td>{{ fd.priority|upper }}</td>
+                <td>{{ fd.title }}</td>
+                <td class="text-danger">{{ fd.error|truncatechars:100 }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-success">🎉 本次执行无失败用例</p>
+        {% endif %}
+    </div>
+</div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$('#exportPdfBtn').on('click', function() {
+    $.post('/api/reports/{{ report.id }}/export-pdf/', function(resp) {
+        if (resp.pdf_url) {
+            window.open(resp.pdf_url, '_blank');
+        } else {
+            alert('导出失败');
+        }
+    }).fail(function() {
+        alert('导出失败，请检查 weasyprint 是否已安装');
+    });
+});
+</script>
+{% endblock %}

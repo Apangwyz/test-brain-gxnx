@@ -18,7 +18,7 @@ from datetime import datetime
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from apps.utils.auth_decorators import api_key_or_csrf_exempt, api_key_required
+from apps.utils.auth_decorators import session_or_apikey_auth, api_key_required
 
 from .progress_schema import (
     TaskStatus as SchemaTaskStatus,
@@ -220,6 +220,13 @@ def generate_task_id(prefix="task"):
 
 
 class TaskProgressManager:
+    """
+    任务进度管理器
+
+    注意：此类已废弃，将在后续版本移除。
+    新代码请直接使用 apps.utils.progress_registry.set_progress/get_progress，
+    或 apps.ai_agents.test_case_generator.progress_manager.StageProgressManager。
+    """
     def __init__(self, task_id, stages):
         self.task_id = task_id
         self.registry = get_progress_registry()
@@ -375,7 +382,7 @@ def get_progress_api(request):
     })
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["POST"])
 def cancel_task_api(request):
     try:

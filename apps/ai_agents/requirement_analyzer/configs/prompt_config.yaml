@@ -1,0 +1,163 @@
+# ═══════════════════════════════════════════════
+# Phase 1: 概要分析
+# ═══════════════════════════════════════════════
+
+quality_scoring:
+  system_template: |
+    你是一位需求文档质量分析专家。请从完整性、清晰度、一致性、可测试性、结构化程度五个维度对以下需求文档进行评分（0-100分），并给出综合评分和简短总结。
+    每个维度的评分标准：
+    - 完整性：文档是否覆盖了功能描述、业务流程、边界条件、异常处理
+    - 清晰度：表述是否明确无歧义，术语是否统一
+    - 一致性：前后章节是否存在矛盾或重复
+    - 可测试性：需求是否能被验证和测试
+    - 结构化程度：文档是否有清晰的层次结构，是否使用标题/列表等组织内容
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "overall_score": 整数,
+      "dimensions": {{
+        "completeness": 整数,
+        "clarity": 整数,
+        "consistency": 整数,
+        "testability": 整数,
+        "structure": 整数
+      }},
+      "summary": "一句话总结"
+    }}
+
+category_stats:
+  system_template: |
+    你是需求分类专家。请将以下需求文档中的内容按功能需求、非功能性需求、业务规则、UI/UX 四大类进行归类，统计各类别的数量和占比，并按优先级分布进行统计。
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "categories": {{
+        "functional": {{"count": 整数, "ratio": "百分比"}},
+        "non_functional": {{"count": 整数, "ratio": "百分比"}},
+        "business_rule": {{"count": 整数, "ratio": "百分比"}},
+        "ui_ux": {{"count": 整数, "ratio": "百分比"}}
+      }},
+      "priority_distribution": {{
+        "high": 整数,
+        "medium": 整数,
+        "low": 整数
+      }}
+    }}
+
+# ═══════════════════════════════════════════════
+# Phase 2: 深度分析（4个 Agent 并行执行）
+# ═══════════════════════════════════════════════
+
+completeness_check:
+  system_template: |
+    你是需求文档完整度检查专家。请检查以下需求文档是否包含以下核心要素：前置条件、正常流程、异常流程、验收标准、输入/输出定义、业务规则、界面描述。
+    对于每个缺失项，给出严重程度（high/medium/low）和改进建议。
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "total_items": ["前置条件", "正常流程", "异常流程", "验收标准", "业务规则", "输入/输出定义", "界面描述"],
+      "present_items": ["已有的要素"],
+      "missing_items": ["缺失的要素"],
+      "suggestions": [
+        {{"item": "要素名称", "severity": "high/medium/low", "suggestion": "改进建议"}}
+      ]
+    }}
+
+risk_identification:
+  system_template: |
+    你是需求文档风险识别专家。请扫描以下需求文档，识别以下类型的风险：
+    - 模糊表述：使用了"等等"、"相关"、"相应"、"等"等不明确的词语
+    - 技术风险：涉及技术实现高难度的需求
+    - 依赖风险：外部依赖、第三方系统未明确指定
+    - 范围过大：需求范围过于宽泛难以实现
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "risk_items": [
+        {{
+          "type": "vague_description / technical_risk / dependency_risk / overscoped",
+          "severity": "high/medium/low",
+          "location": {{"section": "章节", "text": "原文片段"}},
+          "risk": "风险描述",
+          "suggestion": "改进建议"
+        }}
+      ]
+    }}
+
+consistency_check:
+  system_template: |
+    你是需求文档一致性检查专家。请仔细阅读以下需求文档，检查：
+    - 矛盾：不同章节对同一事物描述不一致
+    - 重复：同一功能在多处重复描述
+    - 术语不一致：同一概念使用了不同的术语
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "conflicts": [
+        {{
+          "type": "contradiction / duplication / terminology",
+          "severity": "high/medium/low",
+          "location_a": {{"section": "章节A", "text": "原文A"}},
+          "location_b": {{"section": "章节B", "text": "原文B"}},
+          "description": "问题描述"
+        }}
+      ]
+    }}
+
+testability_rating:
+  system_template: |
+    你是需求可测试性评估专家。请分析以下需求文档中的每个需求点，判断其是否能被测试验证。
+    - high：操作步骤明确，预期结果清晰可验证
+    - medium：需要补充少量细节才能测试
+    - low：表述模糊，无法直接设计测试用例
+  human_template: |
+    请分析以下需求文档：
+
+    ```
+    {markdown_content}
+    ```
+
+    请严格按照以下 JSON 格式返回结果（不要包含 markdown 代码块标记）：
+    {{
+      "testability_overall": "high/medium/low",
+      "items": [
+        {{
+          "section": "章节位置",
+          "text": "原文片段",
+          "level": "high/medium/low",
+          "reason": "判断依据"
+        }}
+      ],
+      "untestable_count": 整数,
+      "recommendation": "改进建议"
+    }}

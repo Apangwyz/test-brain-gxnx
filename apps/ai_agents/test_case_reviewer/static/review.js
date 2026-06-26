@@ -16,119 +16,14 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// 等待页面加载完成
+// 注意：review.html 中已有内联 JS 处理 .review-button 和 .status-button
+// review.js 仅保留辅助函数，避免与内联 JS 冲突
 document.addEventListener('DOMContentLoaded', function() {
-    // 获取所有评审按钮
-    const reviewButtons = document.querySelectorAll('.review-button');
-    
     // 获取 CSRF Token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
-    // 为每个评审按钮添加点击事件监听器
-    reviewButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault(); // 阻止默认行为
-            
-            // 获取测试用例ID
-            const testCaseId = this.getAttribute('data-id');
-            
-            // 验证测试用例ID是否存在
-            if (!testCaseId) {
-                alert('错误：未找到测试用例ID');
-                return;
-            }
-            
-            // 直接打开新窗口，进入详细评审页面
-            window.open(`/test_case_reviewer/case-review-detail/?id=${testCaseId}`, 'TestCaseReview', 
-                'width=800,height=600,scrollbars=yes,resizable=yes');
-        });
-    });
-    
-    // 获取所有状态更新按钮
-    const statusButtons = document.querySelectorAll('.status-button');
-    
-    // 为每个状态更新按钮添加点击事件
-    statusButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const testCaseId = this.getAttribute('data-id');
-            const status = this.getAttribute('data-status');
-            const commentsElement = document.getElementById(`review-comments-${testCaseId}`);
-            const comments = commentsElement ? commentsElement.value.trim() : '';
-            
-            if (status === 'rejected' && !comments) {
-                showNotification('拒绝测试用例时必须提供评审意见', 'error');
-                return;
-            }
-            
-            // 禁用按钮
-            this.disabled = true;
-            
-            // 发送请求到后端
-            fetch('/api/update-status/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    test_case_id: testCaseId,
-                    status: status,
-                    comments: comments
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                this.disabled = false;
-                
-                if (data.success) {
-                    showNotification('测试用例状态已更新', 'success');
-                    
-                    // 更新UI
-                    const testCaseItem = document.getElementById(`test-case-${testCaseId}`);
-                    if (testCaseItem) {
-                        // 移除旧的状态类
-                        testCaseItem.classList.remove('pending', 'approved', 'rejected');
-                        
-                        // 添加新的状态类
-                        testCaseItem.classList.add(status);
-                        
-                        // 更新状态标签
-                        const statusBadge = testCaseItem.querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = status === 'approved' ? '评审通过' : '评审未通过';
-                            statusBadge.classList.remove('badge-warning', 'badge-success', 'badge-danger');
-                            statusBadge.classList.add(
-                                status === 'approved' ? 'badge-success' : 'badge-danger'
-                            );
-                        }
-                        
-                        // 如果在待评审标签页，则移动到相应标签页
-                        if (document.querySelector('#pending-tab.active')) {
-                            setTimeout(() => {
-                                testCaseItem.remove();
-                                
-                                // 检查是否还有待评审的测试用例
-                                const pendingItems = document.querySelectorAll('#pending .test-case-item');
-                                if (pendingItems.length === 0) {
-                                    document.querySelector('#pending').innerHTML = 
-                                        '<div class="alert alert-info">没有待评审的测试用例</div>';
-                                }
-                                
-                                // 更新计数
-                                updateTabCounts();
-                            }, 500);
-                        }
-                    }
-                } else {
-                    showNotification(data.message || '更新测试用例状态失败', 'error');
-                }
-            })
-            .catch(error => {
-                this.disabled = false;
-                showNotification('请求失败: ' + error.message, 'error');
-            });
-        });
-    });
+    // .review-button 事件由 review.html 内联 JS 处理（已映射到 /test_case_reviewer/<id>/）
+    // .status-button 事件由 review.html 内联 JS 处理
     
     // 显示通知
     function showNotification(message, type = 'info') {

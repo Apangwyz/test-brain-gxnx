@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}TestBrain - 需求文档分析{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+}
+.upload-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 48px 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.upload-zone:hover {
+    border-color: var(--primary);
+    background: var(--bg-tertiary);
+}
+.upload-zone.dragover {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.08);
+}
+.upload-icon {
+    font-size: 48px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+}
+
+.report-container {
+    display: none;
+    margin-top: 24px;
+}
+.score-ring {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 36px;
+    font-weight: 700;
+}
+.score-ring.high {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    color: #2e7d32;
+}
+.score-ring.medium {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    color: #e65100;
+}
+.score-ring.low {
+    background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+    color: #c62828;
+}
+.section-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+.section-card h6 {
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.issue-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.issue-tag.high { background: #fce4ec; color: #c62828; }
+.issue-tag.medium { background: #fff3e0; color: #e65100; }
+.issue-tag.low { background: #e8f5e9; color: #2e7d32; }
+.action-bar {
+    margin-top: 24px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+/* 采纳/拒绝样式 */
+.adoption-bar {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+.adoption-bar .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+.status-badge.pending { background: #fff3e0; color: #e65100; }
+.status-badge.adopted { background: #e8f5e9; color: #2e7d32; }
+.status-badge.rejected { background: #fce4ec; color: #c62828; }
+.adoption-bar .btn { min-width: 120px; margin: 0 8px; }
+
+.adopted-docs-panel {
+    margin-top: 24px;
+}
+.adopted-doc-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    background: var(--bg-tertiary);
+}
+.adopted-doc-item .doc-info {
+    flex: 1;
+}
+.adopted-doc-item .doc-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.adopted-doc-item .doc-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.adopted-doc-item .doc-score {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--success);
+    margin-left: 16px;
+}
+</style>
+<link rel="stylesheet" href="{% static 'analysis_progress.css' %}">
+
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="page-header">
+    <h4>需求文档分析</h4>
+    <p>上传需求文档，自动进行质量评分、完整度检查、风险识别、冲突检测、需求分类与可测试性评估</p>
+</div>
+
+<!-- 上传区 -->
+<div class="card">
+    <div class="card-body">
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <h5>点击选择或拖拽文件到此处</h5>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
+                支持 .docx、.pdf 和 .md 格式，最大 10MB
+            </p>
+            <input type="file" id="fileInput" accept=".docx,.pdf,.md" style="display: none;">
+        </div>
+        <div id="selectedFileInfo" style="display: none; margin-top: 20px; text-align: center;">
+            <p style="color: var(--success); font-weight: 500;" id="fileNameDisplay"></p>
+            <button class="btn btn-primary btn-lg" id="startAnalysisBtn">
+                <i class="fas fa-microscope"></i> 开始分析
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 分析报告 -->
+<div class="report-container" id="reportContainer">
+    <!-- 概览仪表盘 -->
+    <div class="card">
+        <div class="card-header"><h5 style="margin:0;">📊 分析概览</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <div class="score-ring" id="scoreRing">-</div>
+                    <p style="font-size: 18px; font-weight: 500;">综合评分</p>
+                </div>
+                <div class="col-md-8">
+                    <div class="row" id="dimensionScores"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 完整度检查 -->
+    <div class="section-card" id="completenessSection">
+        <h6>📋 完整度检查</h6>
+        <div id="completenessContent">分析中...</div>
+    </div>
+
+    <!-- 冲突检测 -->
+    <div class="section-card" id="conflictSection">
+        <h6>⚠️ 一致性与冲突检测</h6>
+        <div id="conflictContent">分析中...</div>
+    </div>
+
+    <!-- 风险识别 -->
+    <div class="section-card" id="riskSection">
+        <h6>🚨 风险识别</h6>
+        <div id="riskContent">分析中...</div>
+    </div>
+
+    <!-- 需求分类 -->
+    <div class="section-card" id="categorySection">
+        <h6>📂 需求分类统计</h6>
+        <div id="categoryContent">分析中...</div>
+    </div>
+
+    <!-- 可测试性 -->
+    <div class="section-card" id="testabilitySection">
+        <h6>✅ 可测试性评级</h6>
+        <div id="testabilityContent">分析中...</div>
+    </div>
+
+    <!-- 采纳/拒绝栏 -->
+    <div class="adoption-bar" id="adoptionBar" style="display: none;">
+        <div>
+            <span class="status-badge pending" id="adoptionStatusBadge">待审核</span>
+        </div>
+        <div id="adoptionActions">
+            <button class="btn btn-success btn-lg" id="adoptBtn">
+                <i class="fas fa-check-circle"></i> 采纳需求
+            </button>
+            <button class="btn btn-outline-danger btn-lg" id="rejectBtn">
+                <i class="fas fa-times-circle"></i> 拒绝需求
+            </button>
+        </div>
+        <div id="adoptionResult" style="display: none;">
+            <p style="font-size: 16px; font-weight: 500;" id="adoptionResultText"></p>
+        </div>
+    </div>
+
+    <!-- 已采纳文档列表 -->
+    <div class="adopted-docs-panel" id="adoptedDocsPanel" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h5 style="margin:0;">📋 已采纳的需求文档</h5>
+            </div>
+            <div class="card-body" id="adoptedDocsList">
+                <p style="color: var(--text-secondary);">加载中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作栏 -->
+    <div class="action-bar">
+        <button class="btn btn-outline-secondary btn-lg" id="exportReportBtn" style="display: none;">
+            <i class="fas fa-download"></i> 导出分析报告
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'requirement_analysis.js' %}?v=2"></script>
+<script src="{% static 'analysis_progress.js' %}?v=2"></script>
+{% endblock %}

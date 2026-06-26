@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 780" width="960" height="780">
+<style>
+  text { font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", "Microsoft JhengHei", "SimHei", sans-serif; }
+</style>
+<defs>
+  <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+  </marker>
+  <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+  </marker>
+  <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/>
+  </marker>
+  <marker id="arrow-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#9333ea"/>
+  </marker>
+  <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.08"/>
+  </filter>
+</defs>
+<rect width="960" height="780" fill="#ffffff"/>
+<text x="480" y="36" text-anchor="middle" font-size="20" font-weight="600" fill="#111827">TestBrain 系统架构图</text>
+<text x="480" y="56" text-anchor="middle" font-size="12" fill="#6b7280">基于大语言模型的智能测试平台 — 系统架构总览</text>
+<rect x="30" y="78" width="900" height="90" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="78" width="160" height="24" rx="4" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+<text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">前端展示层 (Presentation)</text>
+<rect x="60" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="120" y="128" text-anchor="middle" font-size="12" fill="#111827">首页</text>
+<text x="120" y="143" text-anchor="middle" font-size="11" fill="#6b7280">Index</text>
+<rect x="200" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="260" y="128" text-anchor="middle" font-size="12" fill="#111827">测试用例</text>
+<text x="260" y="143" text-anchor="middle" font-size="11" fill="#6b7280">生成器</text>
+<rect x="340" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="400" y="128" text-anchor="middle" font-size="12" fill="#111827">测试用例</text>
+<text x="400" y="143" text-anchor="middle" font-size="11" fill="#6b7280">评审</text>
+<rect x="480" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="540" y="134" text-anchor="middle" font-size="12" fill="#111827">PRD分析器</text>
+<rect x="620" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="680" y="128" text-anchor="middle" font-size="12" fill="#111827">知识库</text>
+<text x="680" y="143" text-anchor="middle" font-size="11" fill="#6b7280">管理</text>
+<rect x="760" y="108" width="120" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="820" y="134" text-anchor="middle" font-size="12" fill="#111827">系统管理</text>
+<path d="M480,168 L480,198" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arrow-blue)"/>
+<rect x="30" y="202" width="900" height="88" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="202" width="180" height="24" rx="4" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+<text x="120" y="218" text-anchor="middle" font-size="12" font-weight="600" fill="#16a34a">Django Web 框架层</text>
+<rect x="60" y="232" width="130" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="125" y="252" text-anchor="middle" font-size="12" fill="#111827">Core Views</text>
+<text x="125" y="267" text-anchor="middle" font-size="11" fill="#6b7280">(页面/API)</text>
+<rect x="210" y="232" width="130" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="275" y="252" text-anchor="middle" font-size="12" fill="#111827">Knowledge Views</text>
+<text x="275" y="267" text-anchor="middle" font-size="11" fill="#6b7280">(知识库视图)</text>
+<rect x="360" y="232" width="130" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="425" y="252" text-anchor="middle" font-size="12" fill="#111827">Agent Views</text>
+<text x="425" y="267" text-anchor="middle" font-size="11" fill="#6b7280">(Agent调用入口)</text>
+<rect x="510" y="232" width="130" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="575" y="252" text-anchor="middle" font-size="12" fill="#111827">Test Execution</text>
+<text x="575" y="267" text-anchor="middle" font-size="11" fill="#6b7280">(测试执行视图)</text>
+<rect x="660" y="232" width="130" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="725" y="252" text-anchor="middle" font-size="12" fill="#111827">SSE Views</text>
+<text x="725" y="267" text-anchor="middle" font-size="11" fill="#6b7280">(流式响应)</text>
+<path d="M480,290 L480,322" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arrow-blue)"/>
+<rect x="30" y="326" width="900" height="100" rx="6" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="326" width="150" height="24" rx="4" fill="#faf5ff" stroke="#d8b4fe" stroke-width="1"/>
+<text x="105" y="342" text-anchor="middle" font-size="12" font-weight="600" fill="#9333ea">AI Agent 层</text>
+<rect x="50" y="356" width="160" height="52" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="130" y="376" text-anchor="middle" font-size="12" fill="#111827">test_case_generator</text>
+<text x="130" y="394" text-anchor="middle" font-size="11" fill="#6b7280">(用例生成)</text>
+<rect x="225" y="356" width="160" height="52" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="305" y="376" text-anchor="middle" font-size="12" fill="#111827">test_case_reviewer</text>
+<text x="305" y="394" text-anchor="middle" font-size="11" fill="#6b7280">(用例评审)</text>
+<rect x="400" y="356" width="160" height="52" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="480" y="376" text-anchor="middle" font-size="12" fill="#111827">prd_analyzer</text>
+<text x="480" y="394" text-anchor="middle" font-size="11" fill="#6b7280">(PRD智能分析)</text>
+<rect x="575" y="356" width="160" height="52" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="655" y="376" text-anchor="middle" font-size="12" fill="#111827">iface_case_generator</text>
+<text x="655" y="394" text-anchor="middle" font-size="11" fill="#6b7280">(接口用例生成)</text>
+<rect x="750" y="356" width="160" height="52" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="830" y="376" text-anchor="middle" font-size="12" fill="#111827">java_code_analyzer</text>
+<text x="830" y="394" text-anchor="middle" font-size="11" fill="#6b7280">(Java源码分析)</text>
+<path d="M480,426 L480,458" stroke="#ea580c" stroke-width="1.5" fill="none" marker-end="url(#arrow-orange)"/>
+<rect x="30" y="462" width="900" height="88" rx="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="462" width="150" height="24" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+<text x="105" y="478" text-anchor="middle" font-size="12" font-weight="600" fill="#ea580c">LLM 服务层</text>
+<rect x="80" y="492" width="180" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="170" y="512" text-anchor="middle" font-size="12" fill="#111827">LLMServiceFactory</text>
+<text x="170" y="527" text-anchor="middle" font-size="11" fill="#6b7280">(动态创建模型客户端)</text>
+<rect x="290" y="492" width="150" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="365" y="512" text-anchor="middle" font-size="12" fill="#111827">DeepSeek</text>
+<text x="365" y="527" text-anchor="middle" font-size="11" fill="#6b7280">ChatModel</text>
+<rect x="460" y="492" width="150" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="535" y="512" text-anchor="middle" font-size="12" fill="#111827">Qwen</text>
+<text x="535" y="527" text-anchor="middle" font-size="11" fill="#6b7280">ChatModel</text>
+<rect x="630" y="492" width="150" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="705" y="512" text-anchor="middle" font-size="12" fill="#111827">Logging</text>
+<text x="705" y="527" text-anchor="middle" font-size="11" fill="#6b7280">CallbackHandler</text>
+<rect x="800" y="492" width="100" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="850" y="512" text-anchor="middle" font-size="12" fill="#111827">Prompts</text>
+<text x="850" y="527" text-anchor="middle" font-size="11" fill="#6b7280">(提示词管理)</text>
+<path d="M480,550 L480,580" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)"/>
+<rect x="30" y="584" width="900" height="88" rx="6" fill="#f0fdfa" stroke="#ccfbf1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="584" width="150" height="24" rx="4" fill="#f0fdfa" stroke="#a7f3d0" stroke-width="1"/>
+<text x="105" y="600" text-anchor="middle" font-size="12" font-weight="600" fill="#059669">知识库层 (Knowledge Layer)</text>
+<rect x="80" y="614" width="170" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="165" y="634" text-anchor="middle" font-size="12" fill="#111827">KnowledgeService</text>
+<text x="165" y="649" text-anchor="middle" font-size="11" fill="#6b7280">(知识库服务封装)</text>
+<rect x="280" y="614" width="170" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="365" y="634" text-anchor="middle" font-size="12" fill="#111827">MilvusVectorStore</text>
+<text x="365" y="649" text-anchor="middle" font-size="11" fill="#6b7280">(向量数据库)</text>
+<rect x="480" y="614" width="170" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="565" y="634" text-anchor="middle" font-size="12" fill="#111827">BGEM3Embedder</text>
+<text x="565" y="649" text-anchor="middle" font-size="11" fill="#6b7280">(Embedding模型)</text>
+<rect x="680" y="614" width="150" height="44" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="755" y="634" text-anchor="middle" font-size="12" fill="#111827">DocumentParser</text>
+<text x="755" y="649" text-anchor="middle" font-size="11" fill="#6b7280">(文档解析器)</text>
+<path d="M480,672 L480,700" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arrow-blue)"/>
+<rect x="30" y="704" width="900" height="62" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5" stroke-dasharray="6,3"/>
+<rect x="30" y="704" width="150" height="24" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+<text x="105" y="720" text-anchor="middle" font-size="12" font-weight="600" fill="#dc2626">数据持久层 (Data Layer)</text>
+<rect x="80" y="734" width="140" height="24" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="150" y="750" text-anchor="middle" font-size="11" fill="#111827">MySQL</text>
+<rect x="250" y="734" width="140" height="24" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="320" y="750" text-anchor="middle" font-size="11" fill="#111827">Milvus</text>
+<rect x="420" y="734" width="140" height="24" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="490" y="750" text-anchor="middle" font-size="11" fill="#111827">Django Models</text>
+<rect x="590" y="734" width="140" height="24" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="660" y="750" text-anchor="middle" font-size="11" fill="#111827">File System</text>
+<rect x="760" y="734" width="130" height="24" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="825" y="750" text-anchor="middle" font-size="11" fill="#111827">Redis</text>
+<rect x="30" y="50" width="340" height="50" rx="4" fill="#ffffff" stroke="#e5e7eb" stroke-width="1"/>
+<text x="38" y="64" font-size="11" font-weight="600" fill="#6b7280">图例</text>
+<line x1="48" y1="76" x2="68" y2="76" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+<text x="72" y="80" font-size="10" fill="#6b7280">请求/数据流</text>
+<line x1="133" y1="76" x2="153" y2="76" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+<text x="157" y="80" font-size="10" fill="#6b7280">Agent → LLM调用</text>
+<line x1="218" y1="76" x2="238" y2="76" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<text x="242" y="80" font-size="10" fill="#6b7280">向量检索流</text>
+<line x1="303" y1="76" x2="323" y2="76" stroke="#9333ea" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+<text x="327" y="80" font-size="10" fill="#6b7280">异步/事件流</text>
+</svg>

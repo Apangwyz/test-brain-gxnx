@@ -28,9 +28,9 @@ if str(BASE_DIR) not in sys.path:
 # 使用环境变量注入SECRET_KEY，确保生产环境安全
 # 强制从环境变量读取，不能依赖不安全的后备值
 SECRET_KEY = os.environ.get('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-# 根据环境变量设置DEBUG模式，生产环境应设置为False
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY 环境变量未设置！请设置 SECRET_KEY 环境变量后再启动。')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # 允许的主机列表，生产环境应限制为具体域名
@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     'apps.ai_agents.prd_analyzer.apps.PrdAnalyzerConfig',
     'apps.ai_agents.test_case_generator.apps.TestCaseGeneratorConfig',
     'apps.ai_agents.test_case_reviewer.apps.TestCaseReviewerConfig',
-
+    'apps.ai_agents.requirement_analyzer',
 ]
 
 MIDDLEWARE = [
@@ -152,14 +152,8 @@ LLM_PROVIDERS = {
     'default_provider': 'deepseek',
     'deepseek': {
         'name': 'DeepSeek',
-        # 'model': 'deepseek-chat', #可以切换, deepseek-reasoner即【深度思考】模式, 可能会稍微慢一些
-        # 'api_base': 'https://api.deepseek.com/v1', #deepseek官网base_url
-
-        # ----使用AI团队部署在阿里云上的deepseek相关配置信息----
         'model': 'deepseek-v3.1',
-        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1', #AI团队使用的阿里云base_url
-        # ----使用AI团队部署在阿里云上的deepseek相关配置信息----
-        
+        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         'temperature': 0.7,
         'max_tokens': 128000,
     },
@@ -168,7 +162,7 @@ LLM_PROVIDERS = {
         'model': 'qwen-plus-2025-01-25',
         'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         'temperature': 0.7,
-        'max_tokens': 65000,  # 修正为不超过65536的值
+        'max_tokens': 65000,
     },
 }
 # AI Agent LLM提供商配置, 每个AI Agent可定制LLM提供商
@@ -178,6 +172,16 @@ AGENT_LLM_DEFAULTS = {
     "prd_analyzer":         {"provider": "qwen"},
     "java_code_analyzer":   {"provider": "qwen"},
     "iface_case_generator": {"provider": "qwen"},
+    "requirement_analyzer": {"provider": "qwen"},
+}
+
+# LLM Provider 优先级配置（降级容错）
+# 当首选 Provider 调用失败时，按此列表顺序自动降级到下一个可用 Provider
+# 环境变量 AGENT_PRIORITY__{agent_name} 和 LLM_PROVIDER_PRIORITY 可覆盖此配置
+# 环境变量优先级: AGENT_PRIORITY__{agent_name} > LLM_PROVIDER_PRIORITY > settings.LLM_PROVIDER_PRIORITY
+LLM_PROVIDER_PRIORITY = {
+    "default": ["qwen", "deepseek"],
+    "requirement_analyzer": ["deepseek", "qwen"],
 }
 
 # 向量数据库配置
@@ -195,22 +199,33 @@ JAVA_ANALYZER_SERVICE_URL = "http://java-analyzer:80" #bj-uat服务间调用
 
 # Java 项目配置
 JAVA_PROJECTS_BASE_DIR = "../"  # Java 项目基础目录
-PROJECT_ID_REPO_MAPPING = {
-    
-    # 可以继续添加更多项目
-}
+
+# 项目ID与仓库URL映射，可通过环境变量 JAVA_REPO_MAPPING_FILE 指定外部JSON文件路径
+# JSON格式: {"project_id": "repo_url", ...}
+PROJECT_ID_REPO_MAPPING = {}
+_repo_mapping_file = os.environ.get('JAVA_REPO_MAPPING_FILE')
+if _repo_mapping_file and os.path.exists(_repo_mapping_file):
+    try:
+        import json
+        with open(_repo_mapping_file, 'r') as _f:
+            PROJECT_ID_REPO_MAPPING = json.load(_f)
+    except Exception as _e:
+        import logging
+        logging.warning(f"读取项目映射文件失败 {_repo_mapping_file}: {_e}")
 
 # Git 凭据配置（用于内部GitLab）
-GIT_CREDENTIALS = {
-    'username': '',  # 替换为实际用户名
-    'password': '',  # 替换为实际密码或访问令牌
-    # 或者使用访问令牌（推荐）
-    # 'token': 'your_gitlab_access_token',
-}
+# 优先从环境变量读取，避免敏感信息硬编码
+GIT_CREDENTIALS = {}
+_git_username = os.environ.get('GIT_USERNAME', '')
+_git_password = os.environ.get('GIT_PASSWORD', '')
+_git_token = os.environ.get('GIT_TOKEN', '')
+if _git_token:
+    GIT_CREDENTIALS = {'token': _git_token}
+elif _git_username and _git_password:
+    GIT_CREDENTIALS = {'username': _git_username, 'password': _git_password}
 
-# Hugging Face 的tokenizers库使用了多进程机制;
-# 在自己的逻辑中使用时，需要注意在进程fork之前不要使用tokenizers库,否则可能会引起死锁
-# 在Django启动时设置环境变量为false,禁止tokenizers库使用多进程
+# Hugging Face tokenizers 多进程设置
+# 在Django启动时设置为 false，避免 fork 后死锁
 os.environ["TOKENIZERS_PARALLELISM"] = "false" 
 
 

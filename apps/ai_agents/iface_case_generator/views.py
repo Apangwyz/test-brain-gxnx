@@ -22,7 +22,7 @@ from django.contrib.auth.decorators import login_required
 logger = get_logger(__name__)
 
 # 获取LLM配置
-llm_config = getattr(settings, 'LLM_PROVIDERS', {})
+# LLM配置通过中心化管理器获取
 DEFAULT_PROVIDER, PROVIDERS = get_agent_llm_configs("iface_case_generator")
 
 
@@ -105,6 +105,20 @@ def iface_case_generator(request):
                     set_task_context(task_id)
                     # 透传用户规则覆盖（若有）
                     rules_override = request.POST.get('rules_override') or None
+                    # --- RAG 知识库增强 ---
+                    from apps.knowledge.retriever import KnowledgeRetriever
+                    retriever = KnowledgeRetriever(top_k=3)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as _rag_f:
+                            _rag_data = json.load(_rag_f)
+                        _rag_query = ' '.join([a.get('name', '') + ' ' + (a.get('description', '') or '') 
+                                                for a in _rag_data.get('apiDefinitions', [])[:5]])
+                        rag_context = retriever.retrieve_and_format(_rag_query[:500])
+                        if rag_context:
+                            os.environ['RAG_CONTEXT'] = rag_context
+                    except Exception:
+                        pass
+                    # --- RAG 结束 ---
                     generate_test_cases_for_apis(
                         file_path, selected_apis, count_per_api, priority, llm_provider, task_id,
                         rules_override=rules_override

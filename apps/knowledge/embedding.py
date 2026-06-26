@@ -31,8 +31,8 @@ class BGEM3Embedder(BaseEmbedder):
             model_name: 模型名称，默认为'BAAI/bge-m3'
         """
         logger.info("正在加载BGE-M3模型...")
-        self.model = SentenceTransformer(model_name)
         from sentence_transformers import SentenceTransformer
+        self.model = SentenceTransformer(model_name)
         
     def get_embeddings(self, texts: Union[str, List[str]], show_progress_bar: bool = False) -> List[List[float]]:
         """获取文本的嵌入向量"""
@@ -188,8 +188,14 @@ def create_embedder():
     provider = getattr(settings, 'EMBEDDING_PROVIDER', 'local')
     
     if provider == 'aliyun':
-        logger.info("使用阿里云向量模型")
-        return AliyunEmbedder()
+        try:
+            logger.info("使用阿里云向量模型")
+            return AliyunEmbedder()
+        except ValueError as e:
+            logger.warning(f"阿里云向量模型初始化失败: {e}")
+            logger.warning("自动降级为本地BGE-M3向量模型")
+            provider = 'local'
+            return BGEM3Embedder()
     else:
         logger.info("使用本地BGE-M3向量模型")
         return BGEM3Embedder()

@@ -50,6 +50,8 @@ class TestCase(models.Model):
         blank=True
     )
 
+    current_version = models.IntegerField(default=1, verbose_name="当前版本号")
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     llm_provider = models.CharField(max_length=50, null=True, blank=True)
@@ -324,3 +326,107 @@ class TestExecutionBatch(models.Model):
     class Meta:
         verbose_name = "测试执行批次"
         verbose_name_plural = "测试执行批次"
+
+class TestCaseVersion(models.Model):
+    """测试用例版本快照"""
+    test_case = models.ForeignKey(
+        'TestCase', on_delete=models.CASCADE,
+        related_name='versions', verbose_name="所属用例"
+    )
+    version_number = models.IntegerField(verbose_name="版本号")
+    snapshot = models.JSONField(verbose_name="版本快照")
+    change_summary = models.CharField(
+        max_length=500, blank=True, verbose_name="变更摘要"
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="创建人"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        verbose_name = "用例版本"
+        verbose_name_plural = "用例版本"
+        unique_together = ('test_case', 'version_number')
+        ordering = ['-version_number']
+
+    def __str__(self):
+        return f"v{self.version_number} - {self.test_case.title}"
+
+
+class TestReport(models.Model):
+    """测试报告"""
+    title = models.CharField(max_length=200, verbose_name="报告标题")
+    batch = models.ForeignKey(
+        'TestExecutionBatch', on_delete=models.CASCADE,
+        related_name='reports', verbose_name="关联执行批次",
+        null=True, blank=True
+    )
+    system = models.ForeignKey(
+        'System', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="所属系统"
+    )
+    report_data = models.JSONField(verbose_name="报告数据")
+    summary = models.TextField(blank=True, verbose_name="报告摘要")
+    pdf_file = models.FileField(
+        upload_to='reports/', blank=True, verbose_name="PDF 文件"
+    )
+    generated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="生成人"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="生成时间")
+
+    class Meta:
+        verbose_name = "测试报告"
+        verbose_name_plural = "测试报告"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+class RequirementAnalysis(models.Model):
+    """需求文档分析记录"""
+    document_name = models.CharField(max_length=200, verbose_name="文档名称")
+    document_hash = models.CharField(max_length=64, verbose_name="文档内容Hash", db_index=True)
+    content_preview = models.TextField(blank=True, verbose_name="内容预览")
+    content = models.TextField(blank=True, verbose_name="完整文档内容")
+    quality_score = models.JSONField(default=dict, verbose_name="质量评分")
+    completeness = models.JSONField(default=dict, verbose_name="完整度检查")
+    consistency = models.JSONField(default=dict, verbose_name="一致性/冲突检测")
+    risk_identification = models.JSONField(default=dict, verbose_name="风险识别")
+    category_stats = models.JSONField(default=dict, verbose_name="需求分类统计")
+    testability = models.JSONField(default=dict, verbose_name="可测试性评级")
+    generation_strategy = models.JSONField(default=dict, blank=True, verbose_name="生成策略")
+
+    total_sections = models.IntegerField(default=0, verbose_name="总章节数")
+    word_count = models.IntegerField(default=0, verbose_name="总字数")
+    analysis_version = models.CharField(max_length=20, default="1.0", verbose_name="分析版本")
+
+    # 采纳状态
+    ADOPTION_CHOICES = [
+        ('pending', '待审核'),
+        ('adopted', '已采纳'),
+        ('rejected', '已拒绝'),
+    ]
+    adoption_status = models.CharField(
+        max_length=20, choices=ADOPTION_CHOICES,
+        default='pending', verbose_name="采纳状态"
+    )
+    adoption_reviewer = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="审核人"
+    )
+    adopted_at = models.DateTimeField(null=True, blank=True, verbose_name="采纳/拒绝时间")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="分析时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "需求分析记录"
+        verbose_name_plural = "需求分析记录"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.created_at:%Y-%m-%d}] {self.document_name} ({self.quality_score.get('overall_score', 'N/A')}分)"

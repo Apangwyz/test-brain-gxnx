@@ -16,15 +16,14 @@ from apps.utils.progress_manager import (
     remove_progress_manager
 )
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from apps.utils.auth_decorators import api_key_or_csrf_exempt
+from apps.utils.auth_decorators import session_or_apikey_auth
 
 from django.contrib.auth.decorators import login_required
 
 
 logger = get_logger(__name__)
 
-llm_config = getattr(settings, 'LLM_PROVIDERS', {})
+# LLM配置通过中心化管理器获取
 DEFAULT_PROVIDER, PROVIDERS = get_agent_llm_configs("prd_analyzer")
 DEFAULT_LLM_CONFIG = PROVIDERS.get(DEFAULT_PROVIDER, {})
 
@@ -33,8 +32,9 @@ llm_service = None
 def get_llm_service():
     global llm_service
     if llm_service is None:
-        llm_service = LLMServiceFactory.create(
-            provider=DEFAULT_PROVIDER,
+        llm_service = LLMServiceFactory.create_with_fallback(
+            agent_name="prd_analyzer",
+            preferred_provider=DEFAULT_PROVIDER,
         )
     return llm_service
 
@@ -45,7 +45,7 @@ def prd_analyzer(request):
         return render(request, 'prd_analyzer.html')
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["POST"])
 def prd_upload_api(request):
     """PRD文件上传API"""
@@ -144,7 +144,18 @@ def analyze_prd_async(task_id, file_path, file_name):
         
         # 提取测试点阶段
         progress_manager.start_stage('extracting_points')
+
+        # --- RAG 知识库增强 ---
+        from apps.knowledge.retriever import KnowledgeRetriever
+        retriever = KnowledgeRetriever(top_k=3)
+        query = f"{file_name} {prd_content[:200]}"
+        rag_context = retriever.retrieve_and_format(query)
+        if rag_context:
+            prd_content = prd_content + "\n\n---\n" + rag_context
+        # --- RAG 结束 ---
+
         result = analyser.analyse(prd_content)
+
         progress_manager.complete_stage('extracting_points')
         
         # 验证结果阶段
@@ -219,7 +230,7 @@ def extract_text_from_pdf(file_path):
         return ''
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["POST"])
 def prd_analyze_api(request):
     """PRD分析API接口"""
@@ -231,10 +242,14 @@ def prd_analyze_api(request):
         if not file_path or not file_name:
             return JsonResponse({'success': False, 'error': '缺少文件路径或文件名'})
         
-        # 安全检查：防止路径穿越
-        if '/' in file_path or '\\' in file_path:
-            return JsonResponse({'success': False, 'error': '非法文件路径'})
-        
+        # 将文件路径解析为绝对路径，检查是否在允许的目录内
+        allowed_dirs = [
+            os.path.abspath("prd"),
+            os.path.abspath("uploads"),
+        ]
+        resolved_path = os.path.abspath(file_path)
+        if not any(os.path.commonpath([resolved_path, d]) == d for d in allowed_dirs):
+            return JsonResponse({"success": False, "error": "非法文件路径"})
         # 检查文件是否存在
         if not os.path.exists(file_path):
             return JsonResponse({'success': False, 'error': '文件不存在'})
@@ -262,3 +277,59 @@ def prd_analyze_api(request):
     except Exception as e:
         logger.error(f"PRD分析请求处理失败: {str(e)}", exc_info=True)
         return JsonResponse({'success': False, 'error': f'请求处理失败: {str(e)}'})
+
+@session_or_apikey_auth
+@require_http_methods(["POST"])
+def prd_to_testcase_api(request):
+    """
+    将 PRD 分析结果传入 test_case_generator 生成用例
+    """
+    try:
+        data = json.loads(request.body)
+        test_points = data.get('test_points', [])
+        notes = data.get('notes', '')
+        
+        # 将测试点合并为需求描述
+        combined_lines = []
+        for i, tp in enumerate(test_points, 1):
+            combined_lines.append(f"{i}. {tp.get('point', '')}")
+            for sc in tp.get('scenarios', []):
+                combined_lines.append(f"   - {sc}")
+        if notes:
+            combined_lines.append(f"补充说明：{notes}")
+        combined = "\n".join(combined_lines)
+        
+        if not combined.strip():
+            return JsonResponse({'success': False, 'error': '测试点列表为空'})
+        
+        # --- 联动 test_case_generator 实际触发生成 ---
+        from apps.ai_agents.test_case_generator.progress_manager import create_progress_manager
+        from apps.ai_agents.test_case_generator.task_executor import submit_generation_task
+        from apps.ai_agents.test_case_generator.views import _generate_test_cases_async
+        
+        # 创建进度管理器
+        progress_manager = create_progress_manager()
+        task_id = progress_manager.task_id
+        
+        # 使用默认配置生成用例
+        submit_generation_task(
+            task_id=task_id,
+            requirements=combined,
+            llm_provider=DEFAULT_PROVIDER,
+            case_design_methods=[],
+            case_categories=[],
+            case_count=10,
+            generator_func=_generate_test_cases_async
+        )
+        # --- 联动结束 ---
+        
+        return JsonResponse({
+            'success': True,
+            'task_id': task_id,
+            'message': f'正在为 {len(test_points)} 个测试点生成用例',
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': '无效的JSON数据'})
+    except Exception as e:
+        logger.error(f"PRD→用例联动失败: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})

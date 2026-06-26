@@ -1,0 +1,647 @@
+/**
+ * 需求文档分析进度展示样式
+ * Analysis Progress Display Styles
+ */
+
+/* 进度展示模态框 */
+.progress-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.progress-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 进度面板 */
+.progress-panel {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    transform: scale(0.9) translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.progress-modal.active .progress-panel {
+    transform: scale(1) translateY(0);
+}
+
+/* 面板头部 */
+.progress-header {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    padding: 24px;
+    text-align: center;
+}
+
+.progress-header h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.progress-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+/* 总体进度条 */
+.overall-progress {
+    padding: 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.progress-bar-container {
+    position: relative;
+    height: 12px;
+    background: #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+    position: relative;
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.progress-bar-fill.completed {
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+    animation: none;
+}
+
+.progress-bar-fill.error {
+    background: linear-gradient(90deg, #dc3545 0%, #fd7e14 100%);
+    animation: none;
+}
+
+.progress-percentage {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.progress-percentage .percentage {
+    color: #4facfe;
+    font-size: 1.5rem;
+}
+
+/* 步骤列表容器 */
+.steps-container {
+    padding: 20px 24px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* 单个步骤 */
+.progress-step {
+    display: flex;
+    align-items: flex-start;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.progress-step:last-child {
+    margin-bottom: 0;
+}
+
+.progress-step:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 步骤状态样式 */
+.progress-step.pending {
+    opacity: 0.6;
+    border-color: #dee2e6;
+}
+
+.progress-step.running {
+    border-color: #4facfe;
+    background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%);
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.15);
+}
+
+.progress-step.completed {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+}
+
+.progress-step.error {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+}
+
+/* 步骤图标 */
+.step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    flex-shrink: 0;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.progress-step.pending .step-icon {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+.progress-step.running .step-icon {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    animation: pulse 1.5s infinite;
+}
+
+.progress-step.completed .step-icon {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.progress-step.error .step-icon {
+    background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+    color: white;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 172, 254, 0.4); }
+    50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(79, 172, 254, 0); }
+}
+
+/* 步骤内容 */
+.step-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.step-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #212529;
+    margin-bottom: 4px;
+}
+
+.step-description {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 6px;
+}
+
+.step-details {
+    font-size: 0.8rem;
+    color: #495057;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    border-left: 3px solid #4facfe;
+    font-family: 'Courier New', monospace;
+    word-break: break-word;
+}
+
+/* 步骤详情折叠容器 */
+.step-details-container {
+    margin-top: 8px;
+}
+.step-details-container .step-details-full {
+    display: none;
+}
+.step-details-container.expanded .step-details-full {
+    display: block;
+}
+.step-details-container.expanded .step-details-summary {
+    display: none;
+}
+.step-details-summary {
+    font-size: 0.8rem;
+    color: #495057;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid #4facfe;
+}
+.toggle-details-btn {
+    background: none;
+    border: none;
+    color: #4facfe;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0;
+    margin-left: 4px;
+}
+.toggle-details-btn:hover {
+    text-decoration: underline;
+}
+.step-details-scroll {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: auto;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+.step-details-scroll pre {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+}
+
+/* 步骤状态标签 */
+.step-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.progress-step.pending .step-status {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+.progress-step.running .step-status {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.progress-step.completed .step-status {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.progress-step.error .step-status {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* 进度底部 */
+.progress-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.progress-status-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.status-running { color: #4facfe; }
+.status-completed { color: #28a745; }
+.status-error { color: #dc3545; }
+
+.progress-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.background-btn {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.background-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
+}
+
+.background-btn:active {
+    transform: translateY(0);
+}
+
+.close-progress-btn {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.close-progress-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+}
+
+.close-progress-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 错误消息样式 */
+.error-message {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+    border-top: 2px solid #dc3545;
+    text-align: left;
+}
+
+.error-message-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.error-message-header i {
+    font-size: 1.5rem;
+    color: #dc3545;
+}
+
+.error-message-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.error-message-body {
+    margin-top: 8px;
+}
+
+.error-message-summary p {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.expand-error-btn {
+    background: none;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.expand-error-btn:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.error-message .error-message-scroll-container {
+    display: none;
+    margin-top: 12px;
+}
+
+.error-message.expanded .error-message-scroll-container {
+    display: block;
+}
+
+.error-message-scroll {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: auto;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 12px;
+}
+
+.error-message-text {
+    padding: 12px;
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: #495057;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+.error-message-actions {
+    text-align: center;
+}
+
+.copy-error-btn {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 8px;
+}
+
+.copy-error-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
+}
+
+.copy-error-btn:active {
+    transform: translateY(0);
+}
+
+.download-error-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.download-error-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.download-error-btn:active {
+    transform: translateY(0);
+}
+
+/* 悬浮按钮样式 */
+.progress-float-button {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgba(79, 172, 254, 0.4);
+    cursor: pointer;
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px) scale(0.9);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-float-button.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    animation: floatBounce 2s infinite;
+}
+
+.progress-float-button:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 32px rgba(79, 172, 254, 0.5);
+}
+
+.progress-float-button.completed {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+    animation: pulseComplete 1.5s infinite;
+}
+
+.progress-float-button.completed:hover {
+    box-shadow: 0 12px 32px rgba(40, 167, 69, 0.5);
+}
+
+@keyframes floatBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-6px) scale(1); }
+}
+
+@keyframes pulseComplete {
+    0%, 100% { box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4); }
+    50% { box-shadow: 0 8px 32px rgba(40, 167, 69, 0.6); }
+}
+
+.float-button-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    position: relative;
+}
+
+.float-button-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 12px;
+    min-width: 24px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+}
+
+.progress-float-button.completed .float-button-badge {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
+}
+
+.float-button-tooltip {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.float-button-tooltip::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.progress-float-button:hover .float-button-tooltip {
+    opacity: 1;
+    visibility: visible;
+}

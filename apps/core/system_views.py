@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from apps.utils.auth_decorators import api_key_or_csrf_exempt, api_key_required
+from apps.utils.auth_decorators import session_or_apikey_auth, api_key_required
 
 from ..core.models import System, TestPlan, RequirementDoc, TestCase
 from apps.utils.logger_manager import get_logger
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 # ==================== 系统管理API ====================
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "POST"])
 def system_list(request):
     """获取系统列表或创建新系统"""
@@ -47,6 +47,12 @@ def system_list(request):
             # 按创建时间排序
             queryset = queryset.order_by('-created_at')
             
+            # 分页处理
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 20))
+            total = queryset.count()
+            queryset = queryset[(page - 1) * page_size:page * page_size]
+            
             systems = []
             for system in queryset:
                 systems.append({
@@ -62,7 +68,10 @@ def system_list(request):
             
             return JsonResponse({
                 'success': True,
-                'systems': systems
+                'systems': systems,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
             })
         
         elif request.method == 'POST':
@@ -119,7 +128,7 @@ def system_list(request):
         })
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "PUT", "DELETE"])
 def system_detail(request, system_id):
     """获取、更新或删除单个系统"""
@@ -280,7 +289,7 @@ def system_stats(request):
 
 # ==================== 测试计划API ====================
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "POST"])
 def test_plan_list(request):
     """获取测试计划列表或创建新测试计划"""
@@ -361,7 +370,7 @@ def test_plan_list(request):
         })
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "PUT", "DELETE"])
 def test_plan_detail(request, plan_id):
     """获取、更新或删除单个测试计划"""
@@ -444,7 +453,7 @@ def test_plan_detail(request, plan_id):
 
 # ==================== 需求文档API ====================
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "POST"])
 def requirement_doc_list(request):
     """获取需求文档列表或创建新需求文档"""
@@ -525,7 +534,7 @@ def requirement_doc_list(request):
         })
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET", "PUT", "DELETE"])
 def requirement_doc_detail(request, doc_id):
     """获取、更新或删除单个需求文档"""
@@ -670,7 +679,7 @@ def get_system_related_data(request, system_id):
 
 # ==================== 测试用例系统关联API ====================
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["PUT"])
 def update_testcase_system(request, case_id):
     """更新测试用例的系统关联"""

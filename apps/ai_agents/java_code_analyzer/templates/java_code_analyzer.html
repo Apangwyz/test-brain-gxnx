@@ -6,136 +6,75 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'common_progress.css' %}">
 <style>
-    .analyzer-container {
-        margin: 20px;
-        padding: 20px;
-    }
-    
-    .analyzer-form {
-        max-width: 800px;
-        margin: 0 auto;
-    }
-    
-    .form-group {
-        margin-bottom: 20px;
-    }
-    
-    .form-label {
-        font-weight: bold;
-        margin-bottom: 5px;
-        display: block;
-    }
-    
-    .form-control {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-    }
-    
-    .form-select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-    }
-    
-    .submit-container {
-        text-align: center;
-        margin-top: 30px;
-    }
-    
-    .submit-button {
-        padding: 12px 40px;
-        font-size: 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    
-    .submit-button:hover {
-        background-color: #0056b3;
-    }
-    
-    .submit-button:disabled {
-        background-color: #6c757d;
-        cursor: not-allowed;
-    }
-    
-    .result-container {
-        margin-top: 30px;
-        padding: 20px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background-color: #f8f9fa;
-        display: none;
-    }
-    
-    .analysis-result {
-        margin-top: 20px;
-        white-space: pre-wrap;
-        background: #000;
-        color: #fff;
-        padding: 15px;
-        border-radius: 4px;
-        overflow-x: auto;
-        max-height: 600px;
-        overflow-y: auto;
-    }
+.analyzer-form { max-width: 680px; }
+.analysis-result-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    max-height: 600px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="analyzer-container">
-    <h4 class="mb-4">Java源码分析</h4>
-    
-    <div class="analyzer-form">
-        <form id="javaCodeAnalysisForm">
-            <div class="form-group">
-                <label for="targetService" class="form-label">目标服务</label>
-                <select id="targetService" class="form-select" required>
-                    <option value="">请选择目标服务</option>
-                    <option value="test_coverage_demo">test_coverage_demo</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="baseCommit" class="form-label">Base Commit</label>
-                <input type="text" id="baseCommit" class="form-control" placeholder="请输入base commit哈希值" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="newCommit" class="form-label">New Commit</label>
-                <input type="text" id="newCommit" class="form-control" placeholder="请输入new commit哈希值" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="llmProvider" class="form-label">大模型提供商</label>
-                <select id="llmProvider" class="form-select">
-                    {% for key, provider in llm_providers.items %}
-                    <option value="{{ key }}" {% if key == llm_provider %}selected{% endif %}>
-                        {{ provider.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="submit-container">
-                <button type="submit" class="submit-button" id="analyzeBtn">开始分析</button>
-            </div>
-        </form>
-    </div>
+<div class="page-header">
+    <h4>Java源码分析</h4>
+    <p>基于 Git commit 对比，智能分析 Java 代码变更并生成测试建议</p>
+</div>
 
-    <!-- 分析结果展示区域 -->
-    <div id="analysis-result" class="result-container">
-        <h3>分析结果</h3>
-        <div id="result-message"></div>
-        <a id="download-link" href="#" class="btn btn-success mt-3">下载分析报告</a>
-        <div class="analysis-result" id="result-content"></div>
+<div class="card">
+    <div class="card-body">
+        <div class="analyzer-form">
+            <form id="javaCodeAnalysisForm">
+                <div class="form-group">
+                    <label for="targetService">目标服务<span class="required-mark">*</span></label>
+                    <select id="targetService" class="form-control" required>
+                        <option value="">请选择目标服务</option>
+                        <option value="test_coverage_demo">test_coverage_demo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="baseCommit">Base Commit<span class="required-mark">*</span></label>
+                    <input type="text" id="baseCommit" class="form-control" placeholder="输入 base commit 哈希值" required>
+                </div>
+                <div class="form-group">
+                    <label for="newCommit">New Commit<span class="required-mark">*</span></label>
+                    <input type="text" id="newCommit" class="form-control" placeholder="输入 new commit 哈希值" required>
+                </div>
+                <div class="form-group">
+                    <label for="llmProvider">大模型提供商<span class="required-mark">*</span></label>
+                    <select id="llmProvider" class="form-control">
+                        {% for key, provider in llm_providers.items %}
+                        <option value="{{ key }}" {% if key == llm_provider %}selected{% endif %}>{{ provider.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="margin-top: 24px;">
+                    <button type="submit" class="btn btn-primary" id="analyzeBtn">
+                        <i class="fas fa-code-branch"></i> 开始分析
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="analysis-result" class="card" style="display: none;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>分析结果</span>
+        <a id="download-link" href="#" class="btn btn-sm btn-success" style="display: none;">下载分析报告</a>
+    </div>
+    <div class="card-body">
+        <div id="result-message" style="margin-bottom: 12px;"></div>
+        <div class="analysis-result-box" id="result-content"></div>
     </div>
 </div>
 {% endblock %}

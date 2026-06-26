@@ -9,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from .callbacks import LoggingCallbackHandler
+from .config_manager import LLMProviderPriorityManager
 # from .deepseek import DeepSeekChatModel
 # from .qwen import QwenChatModel
 
@@ -100,7 +101,14 @@ class LLMServiceFactory:
         provider_config = providers.get(provider, {}).copy()
         
         # 获取API密钥
-        api_key = config.get('api_key') or os.getenv(f"{provider.upper()}_API_KEY")
+        # 优先使用运行时传入的 api_key，其次环境变量
+        # DeepSeek 通过阿里云 DashScope 访问时需 QWEN_API_KEY
+        api_key = config.get('api_key')
+        if not api_key:
+            api_key = os.getenv(f"{provider.upper()}_API_KEY")
+        if not api_key:
+            # 通用后备：检查 QWEN_API_KEY（阿里云 DashScope 统一密钥）
+            api_key = os.getenv('QWEN_API_KEY')
         if api_key:
             provider_config['api_key'] = api_key
         
@@ -128,3 +136,188 @@ class LLMServiceFactory:
         else:
             logger.error(f"未实现的LLM提供商: {provider}")
             raise NotImplementedError(f"LLM provider {provider} is not implemented")
+
+    @staticmethod
+    def create_with_fallback(agent_name: str = None, preferred_provider: str = None, max_fallback: int = None, **config) -> "FallbackLLMWrapper":
+        """创建带优先级降级能力的 LLM 服务包装器。
+
+        Args:
+            agent_name: AI Agent 名称，用于获取该 Agent 的优先级配置。
+            preferred_provider: 首选 Provider（前端手动选择）。
+            max_fallback: 最大降级次数，None 表示不限制。
+            **config: 传递给 LLM 的额外配置参数。
+
+        Returns:
+            FallbackLLMWrapper 实例，接口与 BaseChatModel 兼容（支持 invoke/ainvoke）。
+        """
+        logger = get_logger(__name__)
+        logger.info(f"创建带降级的 LLM 服务: agent_name={agent_name}, preferred={preferred_provider}")
+
+        priority_list = LLMProviderPriorityManager.get_priority_list(
+            agent_name=agent_name,
+            preferred=preferred_provider,
+        )
+
+        return FallbackLLMWrapper(priority_list, max_fallback=max_fallback, **config)
+
+
+class FallbackLLMWrapper:
+    """带优先级降级的 LLM 服务包装器。
+
+    内部维护按优先级排序的 Provider 列表。
+    调用 invoke 时使用优先级最高的 Provider；如果抛出降级触发异常，
+    自动降级到下一个可用 Provider。
+
+    用法::
+
+        wrapper = LLMServiceFactory.create_with_fallback(
+            agent_name="test_case_generator",
+            preferred_provider="qwen",
+        )
+        response = wrapper.invoke(messages)  # 自动降级
+    """
+
+    # 触发降级的异常类型
+    FALLBACK_TRIGGERS = (
+        TimeoutError,
+        ConnectionError,
+    )
+
+    def __init__(self, priority_list: list, max_fallback: int = None, **base_config):
+        """
+        Args:
+            priority_list: 按优先级排列的 [(provider_name, config), ...] 列表。
+            max_fallback: 最大降级次数，None 表示不限制。
+            **base_config: 传递给底层 LLM 实例的额外配置。
+        """
+        self.logger = get_logger(self.__class__.__name__)
+        self._priority_list = priority_list
+        self._current_index = 0
+        self._base_config = base_config
+        self._max_fallback = max_fallback
+        self._llm_cache = {}  # provider_name -> LLM instance
+        self._fallback_count = 0
+        self._current_provider = priority_list[0][0] if priority_list else None
+
+    @property
+    def current_provider(self) -> str:
+        """当前正在使用的 Provider 名称。"""
+        return self._current_provider
+
+    def _get_or_create_llm(self, provider_name: str, provider_config: dict):
+        """获取或创建指定 Provider 的 LLM 实例（缓存）。"""
+        if provider_name not in self._llm_cache:
+            merged_config = {
+                **provider_config,
+                **self._base_config,
+            }
+            self._llm_cache[provider_name] = LLMServiceFactory.create(provider_name, **merged_config)
+        return self._llm_cache[provider_name]
+
+    def invoke(self, messages, **kwargs):
+        """调用 LLM，失败时按优先级自动降级。"""
+        last_error = None
+        start_index = self._current_index
+
+        for i in range(start_index, len(self._priority_list)):
+            provider_name, provider_config = self._priority_list[i]
+
+            # 检查降级次数限制
+            if self._max_fallback is not None and i > start_index:
+                self._fallback_count += 1
+                if self._fallback_count > self._max_fallback:
+                    self.logger.error(
+                        f"降级次数超过限制 ({self._max_fallback})，"
+                        f"Provider '{provider_name}' 跳过"
+                    )
+                    continue
+
+            try:
+                llm = self._get_or_create_llm(provider_name, provider_config)
+                self._current_provider = provider_name
+                self._current_index = i
+
+                self.logger.info(f"使用 Provider '{provider_name}' 调用 LLM (优先级位置 {i})")
+                response = llm.invoke(messages, **kwargs)
+                return response
+
+            except self.FALLBACK_TRIGGERS as e:
+                self.logger.warning(
+                    f"Provider '{provider_name}' 调用失败（{type(e).__name__}），"
+                    f"准备降级到下一个可用 Provider: {e}"
+                )
+                last_error = e
+                # 缓存中删除失败的实例，避免下次复用
+                self._llm_cache.pop(provider_name, None)
+                continue
+
+            except Exception as e:
+                # 非降级触发异常，记录日志后继续尝试下一个 Provider
+                self.logger.error(
+                    f"Provider '{provider_name}' 调用出现非降级异常（{type(e).__name__}），"
+                    f"仍尝试降级到下一个 Provider: {e}"
+                )
+                last_error = e
+                self._llm_cache.pop(provider_name, None)
+                continue
+
+        # 所有 Provider 均失败
+        available = [p for p, _ in self._priority_list]
+        error_msg = (
+            f"所有 Provider 均已失败: {available}。"
+            f"最后错误: {last_error}"
+        )
+        self.logger.error(error_msg)
+        raise RuntimeError(error_msg) from last_error
+
+    async def ainvoke(self, messages, **kwargs):
+        """异步调用 LLM，失败时按优先级自动降级。"""
+        last_error = None
+        start_index = self._current_index
+
+        for i in range(start_index, len(self._priority_list)):
+            provider_name, provider_config = self._priority_list[i]
+
+            if self._max_fallback is not None and i > start_index:
+                self._fallback_count += 1
+                if self._fallback_count > self._max_fallback:
+                    self.logger.error(
+                        f"降级次数超过限制 ({self._max_fallback})，"
+                        f"Provider '{provider_name}' 跳过"
+                    )
+                    continue
+
+            try:
+                llm = self._get_or_create_llm(provider_name, provider_config)
+                self._current_provider = provider_name
+                self._current_index = i
+
+                self.logger.info(f"使用 Provider '{provider_name}' 异步调用 LLM (优先级位置 {i})")
+                response = await llm.ainvoke(messages, **kwargs)
+                return response
+
+            except self.FALLBACK_TRIGGERS as e:
+                self.logger.warning(
+                    f"Provider '{provider_name}' 异步调用失败（{type(e).__name__}），"
+                    f"准备降级到下一个可用 Provider: {e}"
+                )
+                last_error = e
+                self._llm_cache.pop(provider_name, None)
+                continue
+
+            except Exception as e:
+                self.logger.error(
+                    f"Provider '{provider_name}' 异步调用出现非降级异常（{type(e).__name__}），"
+                    f"仍尝试降级到下一个 Provider: {e}"
+                )
+                last_error = e
+                self._llm_cache.pop(provider_name, None)
+                continue
+
+        available = [p for p, _ in self._priority_list]
+        error_msg = (
+            f"所有 Provider 均已失败: {available}。"
+            f"最后错误: {last_error}"
+        )
+        self.logger.error(error_msg)
+        raise RuntimeError(error_msg) from last_error

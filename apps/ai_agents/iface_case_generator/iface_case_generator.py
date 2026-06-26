@@ -24,7 +24,7 @@ class APITestCaseGeneratorAgent:
     
     def __init__(self, llm_provider: str = "deepseek"):
         self.llm_provider = llm_provider
-        self.llm = LLMServiceFactory.create(llm_provider)
+        self.llm = LLMServiceFactory.create_with_fallback(agent_name="iface_case_generator", preferred_provider=llm_provider)
         self.prompt = APITestCaseGeneratorPrompt()
         self.test_case_full_template = self._load_test_case_full_template()
         self.max_workers = 5

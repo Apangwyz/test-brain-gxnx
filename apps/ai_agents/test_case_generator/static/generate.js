@@ -1,484 +1,17 @@
 // 测试用例生成页面专用脚本
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化文件上传功能
-    initFileUpload();
     
     // 初始化表单提交功能
     initFormSubmit();
     
     // 初始化其他功能
     initOtherFeatures();
+    
+    // 加载已采纳需求文档
+    loadAdoptedDocs();
 });
 
-// 文件上传相关变量
-let uploadedFiles = [];
-let isUploading = false;
-
-// 初始化文件上传功能
-function initFileUpload() {
-    const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('file-input');
-    const uploadedFilesContainer = document.getElementById('uploaded-files');
-    const uploadProgress = document.getElementById('upload-progress');
-    const progressBar = uploadProgress?.querySelector('.progress-bar');
-    const progressText = uploadProgress?.querySelector('.progress-text');
-    
-    // 支持的文件类型
-    const allowedExtensions = ['.docx', '.md', '.txt', '.pdf'];
-    
-    // 拖拽上传 - 处理dragenter事件
-    uploadArea?.addEventListener('dragenter', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadArea.classList.add('dragover');
-    });
-    
-    // 拖拽上传 - 处理dragover事件
-    uploadArea?.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadArea.classList.add('dragover');
-    });
-    
-    // 拖拽上传 - 处理dragleave事件
-    uploadArea?.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const rect = uploadArea.getBoundingClientRect();
-        if (e.clientX <= rect.left || e.clientX >= rect.right ||
-            e.clientY <= rect.top || e.clientY >= rect.bottom) {
-            uploadArea.classList.remove('dragover');
-        }
-    });
-    
-    // 拖拽上传 - 处理drop事件
-    uploadArea?.addEventListener('drop', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadArea.classList.remove('dragover');
-        
-        const files = Array.from(e.dataTransfer?.files || []);
-        handleFiles(files);
-    });
-    
-    // 为document添加事件处理，防止拖拽事件影响其他元素
-    document.addEventListener('dragenter', function(e) {
-        e.preventDefault();
-    });
-    
-    document.addEventListener('dragover', function(e) {
-        e.preventDefault();
-    });
-    
-    document.addEventListener('drop', function(e) {
-        e.preventDefault();
-    });
-    
-    // 文件选择变化 - 文件输入元素直接覆盖在上传区域上，无需额外点击事件
-    fileInput?.addEventListener('change', function(e) {
-        e.stopPropagation();
-        const files = Array.from(e.target?.files || []);
-        handleFiles(files);
-    });
-    
-    // 处理文件
-    function handleFiles(files) {
-        if (!files || files.length === 0) return;
-        if (isUploading) {
-            showNotification('正在处理其他文件，请稍候...', 'warning');
-            return;
-        }
-        
-        // 筛选有效文件
-        const validFiles = [];
-        const maxFileSize = 50 * 1024 * 1024; // 50MB
-        files.forEach(file => {
-            const extension = file.name.split('.').pop().toLowerCase();
-            if (!allowedExtensions.includes('.' + extension)) {
-                showNotification(`不支持的文件类型: .${extension}，支持 .docx、.md、.txt、.pdf`, 'error');
-                return;
-            }
-            
-            if (file.size > maxFileSize) {
-                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-                showNotification(`文件 "${file.name}" 大小超过限制（${fileSizeMB}MB > 50MB）`, 'error');
-                return;
-            }
-            
-            validFiles.push(file);
-        });
-        
-        if (validFiles.length === 0) {
-            showNotification('没有有效的文件需要上传', 'warning');
-            return;
-        }
-        
-        // 显示进度条
-        if (uploadProgress) {
-            uploadProgress.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressText.textContent = `准备上传 ${validFiles.length} 个文件...`;
-        }
-        
-        // 批量添加文件到列表并开始上传
-        validFiles.forEach((file) => {
-            const fileItem = createFileItem(file);
-            uploadedFilesContainer?.appendChild(fileItem);
-            uploadedFiles.push({
-                file: file,
-                element: fileItem,
-                id: Date.now() + Math.random(),
-                status: 'pending',
-                uploadTime: null
-            });
-        });
-        
-        // 更新上传区域样式
-        uploadArea?.classList.add('has-files');
-        
-        // 重置文件输入以便可以重复选择相同文件
-        if (fileInput) {
-            fileInput.value = '';
-        }
-        
-        // 自动开始上传
-        startUpload();
-    }
-    
-    // 创建文件项元素
-    function createFileItem(file) {
-        const item = document.createElement('div');
-        item.className = 'uploaded-file-item';
-        item.dataset.id = Date.now() + Math.random();
-        
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        const iconClass = getFileIconClass(fileExtension);
-        const currentTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        
-        item.innerHTML = `
-            <div class="file-info">
-                <span class="file-icon ${iconClass}"></span>
-                <div class="file-details">
-                    <span class="file-name">${file.name}</span>
-                    <span class="file-meta">${formatFileSize(file.size)} · ${currentTime}</span>
-                </div>
-                <span class="file-status pending">
-                    <span class="status-icon">
-                        <i class="fas fa-spinner fa-spin"></i>
-                    </span>
-                    <span class="status-text">上传中...</span>
-                </span>
-            </div>
-            <div class="file-actions">
-                <button type="button" class="retry-btn" style="display: none;" onclick="retryUpload('${item.dataset.id}')">
-                    <i class="fas fa-redo"></i>
-                </button>
-                <button type="button" class="remove-file-btn" onclick="removeFile('${item.dataset.id}')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        
-        return item;
-    }
-    
-    // 获取文件图标类名
-    function getFileIconClass(extension) {
-        switch (extension) {
-            case 'docx':
-                return 'fas fa-file-word text-blue';
-            case 'md':
-                return 'fas fa-file-code text-purple';
-            case 'txt':
-                return 'fas fa-file-text text-gray';
-            case 'pdf':
-                return 'fas fa-file-pdf text-red';
-            default:
-                return 'fas fa-file text-gray';
-        }
-    }
-    
-    // 格式化文件大小
-    function formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-    
-    // 开始上传
-    function startUpload() {
-        isUploading = true;
-        const pendingFiles = uploadedFiles.filter(f => f.status === 'pending');
-        
-        if (pendingFiles.length === 0) {
-            isUploading = false;
-            return;
-        }
-        
-        const totalFiles = pendingFiles.length;
-        let processedFiles = 0;
-        let combinedContent = '';
-        
-        // 更新进度文本
-        if (progressText) {
-            progressText.textContent = `正在上传 0/${totalFiles} 个文件...`;
-        }
-        
-        // 逐个处理文件
-        pendingFiles.forEach((uploadedFile, index) => {
-            // 更新状态为上传中
-            uploadedFile.status = 'uploading';
-            
-            const formData = new FormData();
-            formData.append('file', uploadedFile.file);
-            
-            // 添加加载动画
-            addLoadingAnimation(uploadedFile.element);
-            
-            fetch('/test_case_generator/upload-file/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                processedFiles++;
-                
-                // 移除加载动画
-                removeLoadingAnimation(uploadedFile.element);
-                
-                // 更新文件状态
-                const statusElement = uploadedFile.element.querySelector('.file-status');
-                if (data.success) {
-                    uploadedFile.status = 'success';
-                    uploadedFile.uploadTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-                    
-                    uploadedFile.element.classList.add('success');
-                    uploadedFile.element.classList.remove('error');
-                    statusElement.className = 'file-status success';
-                    statusElement.innerHTML = '<span class="status-icon"><i class="fas fa-check-circle"></i></span><span class="status-text">上传成功</span>';
-                    
-                    // 隐藏重试按钮，显示成功动画
-                    const retryBtn = uploadedFile.element.querySelector('.retry-btn');
-                    if (retryBtn) retryBtn.style.display = 'none';
-                    
-                    addSuccessAnimation(uploadedFile.element);
-                    
-                    // 合并内容
-                    combinedContent += (combinedContent ? '\n\n---\n\n' : '') + `## ${uploadedFile.file.name}\n\n` + data.content;
-                    
-                    showNotification(`文件 "${uploadedFile.file.name}" 上传成功`, 'success');
-                } else {
-                    uploadedFile.status = 'error';
-                    uploadedFile.errorMessage = data.message;
-                    
-                    uploadedFile.element.classList.add('error');
-                    uploadedFile.element.classList.remove('success');
-                    statusElement.className = 'file-status error';
-                    statusElement.innerHTML = '<span class="status-icon"><i class="fas fa-exclamation-circle"></i></span><span class="status-text">上传失败</span>';
-                    
-                    // 显示重试按钮
-                    const retryBtn = uploadedFile.element.querySelector('.retry-btn');
-                    if (retryBtn) retryBtn.style.display = 'inline-block';
-                    
-                    showNotification(`文件 "${uploadedFile.file.name}" 上传失败: ${data.message}`, 'error');
-                }
-                
-                // 更新进度
-                updateProgress(processedFiles, totalFiles);
-                
-                // 所有文件处理完成
-                if (processedFiles === totalFiles) {
-                    finishUpload(combinedContent, totalFiles);
-                }
-            })
-            .catch(error => {
-                processedFiles++;
-                uploadedFile.status = 'error';
-                uploadedFile.errorMessage = error.message || '网络错误';
-                
-                // 移除加载动画
-                removeLoadingAnimation(uploadedFile.element);
-                
-                const statusElement = uploadedFile.element.querySelector('.file-status');
-                uploadedFile.element.classList.add('error');
-                uploadedFile.element.classList.remove('success');
-                statusElement.className = 'file-status error';
-                statusElement.innerHTML = '<span class="status-icon"><i class="fas fa-exclamation-circle"></i></span><span class="status-text">上传失败</span>';
-                
-                // 显示重试按钮
-                const retryBtn = uploadedFile.element.querySelector('.retry-btn');
-                if (retryBtn) retryBtn.style.display = 'inline-block';
-                
-                // 更新进度
-                updateProgress(processedFiles, totalFiles);
-                
-                // 所有文件处理完成
-                if (processedFiles === totalFiles) {
-                    finishUpload(combinedContent, totalFiles);
-                }
-            });
-        });
-    }
-    
-    // 更新进度
-    function updateProgress(processed, total) {
-        const progress = Math.round((processed / total) * 100);
-        if (progressBar) progressBar.style.width = progress + '%';
-        if (progressText) progressText.textContent = `正在上传 ${processed}/${total} 个文件...`;
-    }
-    
-    // 完成上传
-    function finishUpload(combinedContent, totalFiles) {
-        isUploading = false;
-        
-        // 隐藏进度条
-        if (uploadProgress) {
-            setTimeout(() => {
-                uploadProgress.style.display = 'none';
-            }, 500);
-        }
-        
-        const successCount = uploadedFiles.filter(f => f.status === 'success').length;
-        
-        if (successCount > 0 && combinedContent) {
-            // 将解析内容填充到文本框
-            const inputText = document.getElementById('input-text');
-            if (inputText) {
-                // 如果已有内容，追加新内容
-                if (inputText.value && inputText.value.trim()) {
-                    inputText.value += '\n\n' + combinedContent;
-                } else {
-                    inputText.value = combinedContent;
-                }
-                // 滚动到文本框
-                inputText.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            showNotification(`成功上传 ${successCount}/${totalFiles} 个文件，内容已填充到需求描述框`, 'success');
-        } else if (successCount === 0) {
-            showNotification('所有文件上传失败，请检查网络或重试', 'error');
-        }
-    }
-    
-    // 添加加载动画
-    function addLoadingAnimation(element) {
-        element.style.opacity = '0.7';
-    }
-    
-    // 移除加载动画
-    function removeLoadingAnimation(element) {
-        element.style.opacity = '1';
-    }
-    
-    // 添加成功动画
-    function addSuccessAnimation(element) {
-        element.style.animation = 'successPulse 0.5s ease-out';
-        setTimeout(() => {
-            element.style.animation = '';
-        }, 500);
-    }
-    
-    // 重试上传
-    window.retryUpload = function(id) {
-        const uploadedFile = uploadedFiles.find(f => f.element.dataset.id === id);
-        if (!uploadedFile) return;
-        
-        // 更新状态为待上传
-        uploadedFile.status = 'pending';
-        
-        // 重置UI状态
-        const statusElement = uploadedFile.element.querySelector('.file-status');
-        uploadedFile.element.classList.remove('success', 'error');
-        statusElement.className = 'file-status pending';
-        statusElement.innerHTML = '<span class="status-icon"><i class="fas fa-spinner fa-spin"></i></span><span class="status-text">重新上传...</span>';
-        
-        // 隐藏重试按钮
-        const retryBtn = uploadedFile.element.querySelector('.retry-btn');
-        if (retryBtn) retryBtn.style.display = 'none';
-        
-        // 重新开始上传
-        startUpload();
-    };
-    
-    // 移除文件
-    window.removeFile = function(id) {
-        const index = uploadedFiles.findIndex(f => f.element.dataset.id === id);
-        if (index !== -1) {
-            const file = uploadedFiles[index];
-            const fileName = file.file?.name || '未知文件';
-            
-            // 添加移除动画
-            file.element.style.animation = 'slideOut 0.3s ease-out';
-            setTimeout(() => {
-                file.element.remove();
-                uploadedFiles.splice(index, 1);
-                
-                // 更新上传区域样式
-                if (uploadedFiles.length === 0) {
-                    uploadArea?.classList.remove('has-files');
-                }
-                
-                // 从需求描述框中移除对应文件的内容
-                const inputText = document.getElementById('input-text');
-                if (inputText && inputText.value) {
-                    // 构建要移除的内容模式：## 文件名\n\n内容...\n\n---\n\n 或 文件末尾的内容
-                    const separator = '\n\n---\n\n';
-                    const contentPattern = new RegExp('(^|' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + ')## ' + escapeRegex(fileName) + '\\n\\n[\\s\\S]*?(?=' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '|$)', 'g');
-                    const originalValue = inputText.value;
-                    let newValue = inputText.value.replace(contentPattern, '');
-                    
-                    // 清理可能产生的多余分隔符
-                    newValue = newValue.replace(new RegExp('^' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), '');
-                    newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '$'), '');
-                    newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), separator);
-                    newValue = newValue.trim();
-                    
-                    if (newValue !== originalValue) {
-                        inputText.value = newValue;
-                        showNotification(`已从需求描述中移除文件 "${fileName}" 的内容`, 'info');
-                    }
-                }
-            }, 300);
-        }
-    };
-    
-    // 辅助函数：转义正则表达式特殊字符
-    function escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-    
-    // 清空所有文件
-    window.clearAllFiles = function() {
-        uploadedFiles.forEach(f => {
-            f.element.style.animation = 'slideOut 0.3s ease-out';
-        });
-        setTimeout(() => {
-            uploadedFiles.forEach(f => f.element.remove());
-            uploadedFiles = [];
-            uploadArea?.classList.remove('has-files');
-            
-            // 从需求描述框中移除所有来自文件的内容（以 ## 开头的段落）
-            const inputText = document.getElementById('input-text');
-            if (inputText && inputText.value) {
-                const separator = '\n\n---\n\n';
-                // 移除所有以 ## 文件名 开头的段落（包括分隔符）
-                let newValue = inputText.value.replace(new RegExp('(^|' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + ')## [^\\n]+\\n\\n[\\s\\S]*?(?=' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '|$)', 'g'), '');
-                newValue = newValue.replace(new RegExp('^' + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), '');
-                newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + '$'), '');
-                newValue = newValue.replace(new RegExp(separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&') + separator.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')), separator);
-                newValue = newValue.trim();
-                
-                if (newValue !== inputText.value) {
-                    inputText.value = newValue;
-                    showNotification('已清空所有上传文件的内容', 'info');
-                }
-            }
-        }, 300);
-    };
-}
 
 // 初始化表单提交功能
 function initFormSubmit() {
@@ -827,5 +360,101 @@ function showNotification(message, type = 'success') {
         setTimeout(() => {
             document.body.removeChild(toast);
         }, 300);
+    }, 3000);
+}
+
+// ===== 已采纳需求文档加载 =====
+
+function loadAdoptedDocs() {
+    window.__adoptedDocContents = {};
+    const container = document.getElementById('adoptedDocsList');
+    const hint = document.getElementById('noAdoptedHint');
+    if (!container) return;
+
+    fetch('/requirement_analysis/api/adopted-docs/')
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.data && data.data.length > 0) {
+            hint.style.display = 'none';
+            container.style.display = 'block';
+            container.innerHTML = '';
+            data.data.forEach(function(doc) {
+                const score = doc.quality_score || 'N/A';
+                const preview = (doc.content_preview || '').substring(0, 120);
+                const item = document.createElement('div');
+                item.className = 'adopted-doc-check-item';
+                item.innerHTML = `
+                    <input type="checkbox" class="adopted-doc-checkbox" value="${doc.id}" data-content="" data-doc-id="${doc.id}">
+                    <div class="doc-info">
+                        <div class="doc-name">📄 ${doc.document_name}</div>
+                        <div class="doc-meta">${doc.word_count || 0} 字 | ${doc.total_sections || 0} 节 | ${preview}...</div>
+                    </div>
+                    <div class="doc-score">${score}分</div>
+                `;
+                container.appendChild(item);
+                // 保存完整文档内容
+                window.__adoptedDocContents[doc.id] = doc.content || "";
+            });
+            // 显示"确定选择"按钮并绑定事件
+            const fillBtn = document.getElementById('fillSelectedBtn');
+            fillBtn.style.display = 'inline-block';
+            fillBtn.onclick = fillSelectedDocs;
+            // 监听复选框变化
+            container.addEventListener('change', function() {
+                const checked = container.querySelectorAll('.adopted-doc-checkbox:checked');
+                document.getElementById('selectedCount').textContent = checked.length;
+                fillBtn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+            });
+        } else {
+            hint.style.display = 'block';
+            container.style.display = 'none';
+        }
+    })
+    .catch(function(err) {
+        console.log('加载已采纳文档失败:', err);
+    });
+}
+
+function fillSelectedDocs() {
+    const checked = document.querySelectorAll('.adopted-doc-checkbox:checked');
+    if (checked.length === 0) {
+        showToast('请先选择至少一个已采纳的需求文档', 'warning');
+        return;
+    }
+    const textarea = document.getElementById('input-text');
+    if (!textarea) return;
+
+    let combined = '';
+    checked.forEach(function(cb) {
+        const parent = cb.closest('.adopted-doc-check-item');
+        const docName = parent?.querySelector('.doc-name')?.textContent?.trim() || '需求文档';
+        const docId = cb.getAttribute('data-doc-id');
+        const content = window.__adoptedDocContents && window.__adoptedDocContents[docId] ? window.__adoptedDocContents[docId] : '';
+        combined += `=== ${docName} ===\n${content}\n\n`;
+    });
+
+    // 追加到现有内容后面
+    const existing = textarea.value.trim();
+    textarea.value = existing ? existing + '\n\n' + combined : combined;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const count = checked.length;
+    showToast(`已填入 ${count} 个已采纳需求文档的内容`, 'success');
+
+    // 取消勾选
+    checked.forEach(function(cb) { cb.checked = false; });
+    document.getElementById('selectedCount').textContent = '0';
+    document.getElementById('fillSelectedBtn').style.display = 'none';
+}
+
+// ===== Toast 通知 =====
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'toast show ' + (type || 'success');
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
     }, 3000);
 }

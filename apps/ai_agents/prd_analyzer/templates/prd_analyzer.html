@@ -1,181 +1,176 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}TestBrain - 文件解析{% endblock %}
+{% block title %}TestBrain - 测试点&场景分析{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'common_progress.css' %}">
 <style>
-    .upload-container {
-        margin: 20px;
-        padding: 20px;
-    }
-    
-    .upload-area {
-        border: 2px dashed #ddd;
-        border-radius: 8px;
-        padding: 60px 40px;
-        text-align: center;
-        background-color: #f8f9fa;
-        margin: 30px 0;
-        min-height: 300px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .upload-area:hover {
-        border-color: #007bff;
-        background-color: #f1f7ff;
-    }
-
-    .upload-area.dragover {
-        border-color: #007bff;
-        background-color: #e3f2fd;
-        transform: scale(1.02);
-    }
-
-    .upload-area.disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
-
-    .upload-area.disabled:hover {
-        border-color: #ddd;
-        background-color: #f8f9fa;
-        transform: none;
-    }
-
-    .file-input-button {
-        padding: 12px 30px;
-        font-size: 16px;
-        margin-bottom: 20px;
-    }
-
-    .upload-hint {
-        color: #666;
-        font-size: 14px;
-        margin-top: 15px;
-    }
-
-    .submit-container {
-        text-align: center;
-        margin-top: 20px;
-    }
-
-    .submit-button {
-        padding: 12px 40px;
-        font-size: 16px;
-    }
-
-    .selected-file {
-        margin-top: 15px;
-        color: #28a745;
-        font-weight: 500;
-        display: none;
-    }
-
-    .result-table {
-        margin-top: 30px;
-        display: none;
-    }
-
-    .result-table table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .result-table th, .result-table td {
-        border: 1px solid #dee2e6;
-        padding: 12px;
-    }
-
-    .result-table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-    }
-
-    .result-table .scenario-row {
-        background-color: #f8f9fa;
-    }
-
-    .priority-high {
-        color: #dc3545;
-    }
-
-    .priority-medium {
-        color: #ffc107;
-    }
-
-    .priority-low {
-        color: #28a745;
-    }
-
-    .summary-section {
-        margin-top: 20px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 5px;
-    }
+.result-table {
+    margin-top: 24px;
+}
+.summary-section {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+.summary-section h6 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+.priority-high { color: var(--danger); }
+.priority-medium { color: var(--warning); }
+.priority-low { color: var(--success); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="upload-container">
-    <h4 class="mb-4">测试点&测试场景解析</h4>
-    
-    <!-- 上传按钮 -->
-    <div class="submit-container">
-        <button type="button" class="btn btn-primary" onclick="showUploadModal()">选择要解析的文件</button>
-    </div>
-    
-    <div class="upload-hint text-center">
-        拖拽文件到上方按钮区域或点击选择文件<br>
-        <span class="text-success">支持 .docx 和 .pdf 文件格式</span><br>
-        <span style="color: #dc3545;">Tips:从wiki导出的word默认是doc格式可使用wps手动转换一下</span>
-    </div>
+<div class="page-header">
+    <h4>测试点 &amp; 测试场景解析</h4>
+    <p>上传需求文档，AI 自动提取测试点、生成测试场景</p>
+</div>
 
-    <!-- 选中文件显示区域 -->
-    <div id="selected-file-info" class="text-center" style="display: none; margin-top: 20px;">
-        <div class="selected-file" id="selected-file-name"></div>
-        <div id="upload-status" style="margin-top: 10px; color: #666;"></div>
-    </div>
+<div class="card">
+    <div class="card-body">
+        <div class="text-center" style="margin-bottom: 16px;">
+            <button type="button" class="btn btn-primary btn-lg" onclick="showUploadModal()">
+                <i class="fas fa-file-upload"></i> 选择要解析的文件
+            </button>
+        </div>
+        <div class="text-center" style="color: var(--text-secondary); font-size: 14px;">
+            支持 .docx 和 .pdf 文件格式 &nbsp;|&nbsp;
+            <span style="color: var(--text-tertiary);">Tips: 从 wiki 导出的 word 默认是 doc 格式，可使用 WPS 手动转换</span>
+        </div>
 
-    <!-- 解析按钮 -->
-    <div class="submit-container" id="analyze-container" style="display: none;">
-        <button type="button" class="btn btn-success submit-button" id="submitBtn">开始解析</button>
+        <div id="selected-file-info" class="text-center" style="display: none; margin-top: 20px;">
+            <div id="selected-file-name" style="color: var(--success); font-weight: 500; margin-bottom: 8px;"></div>
+            <div id="upload-status" style="color: var(--text-secondary); font-size: 14px;"></div>
+        </div>
+
+        <div class="text-center" id="analyze-container" style="display: none; margin-top: 20px;">
+            <button type="button" class="btn btn-success btn-lg" id="submitBtn">
+                <i class="fas fa-microscope"></i> 开始解析
+            </button>
+        </div>
     </div>
 </div>
 
-<!-- 分析结果展示区域 -->
-<div id="resultTable" class="result-table">
-    <h5>分析结果</h5>
-    <div class="summary-section">
-        <h6>统计信息</h6>
-        <div id="summary" class="row">
-            <!-- 统计信息将通过 JavaScript 填充 -->
+<div id="resultTable" class="result-table" style="display: none;">
+    <div class="card">
+        <div class="card-header">分析结果</div>
+        <div class="card-body">
+            <div class="summary-section">
+                <h6>统计信息</h6>
+                <div id="summary" class="row"></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>测试点标题</th>
+                            <th>测试点详细描述</th>
+                            <th style="width: 80px;">优先级</th>
+                            <th>测试场景详细描述</th>
+                            <th style="width: 100px;">测试类型</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
-    <table class="table table-bordered mt-3">
-        <thead>
-            <tr>
-                <th>测试点标题</th>
-                <th>测试点详细描述</th>
-                <th>优先级</th>
-                <th>测试场景详细描述</th>
-                <th>测试类型</th>
-            </tr>
-        </thead>
-        <tbody id="resultTableBody">
-            <!-- 结果将通过 JavaScript 填充 -->
-        </tbody>
-    </table>
 </div>
 {% endblock %}
 
+
+            <div style="margin-top: 16px; text-align: right;">
+                <button type="button" class="btn btn-success" id="generateAllCasesBtn" style="display: none;">
+                    🚀 全部生成测试用例
+                </button>
+            </div>
+
 {% block extra_js %}
 <script src="{% static 'prd_analyzer.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 生成用例按钮功能
+    const generateAllBtn = document.getElementById('generateAllCasesBtn');
+    if (generateAllBtn) {
+        generateAllBtn.addEventListener('click', function() {
+            const rows = document.querySelectorAll('#resultTableBody tr');
+            const testPoints = [];
+            const processedTitles = new Set();
+            
+            rows.forEach(function(row) {
+                const titleCell = row.querySelector('td[rowspan]');
+                if (titleCell) {
+                    const title = titleCell.textContent.trim();
+                    if (!processedTitles.has(title)) {
+                        processedTitles.add(title);
+                        const descCell = row.cells[1];
+                        testPoints.push({
+                            point: title,
+                            scenarios: []
+                        });
+                    }
+                }
+            });
+            
+            if (testPoints.length === 0) {
+                alert('没有可生成的测试点');
+                return;
+            }
+            
+            fetch('/prd_analyzer/api/prd-to-testcase/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    test_points: testPoints,
+                    notes: ''
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('开始生成测试用例，请前往「测试用例生成」页面查看进度');
+                    window.location.href = '/test_case_generator/';
+                } else {
+                    alert('生成失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(err => {
+                alert('请求失败: ' + err.message);
+            });
+        });
+    }
+    
+    // 修改showAnalysisResult以显示生成按钮
+    const originalShow = window.showAnalysisResult;
+    if (!originalShow) {
+        // 监控结果表格显示
+        const observer = new MutationObserver(function() {
+            const resultTable = document.getElementById('resultTable');
+            if (resultTable && resultTable.style.display !== 'none') {
+                const genBtn = document.getElementById('generateAllCasesBtn');
+                if (genBtn) genBtn.style.display = 'inline-block';
+            }
+        });
+        const resultTable = document.getElementById('resultTable');
+        if (resultTable) {
+            observer.observe(resultTable, { attributes: true, attributeFilter: ['style'] });
+        }
+    }
+});
+</script>
+
 {% endblock %}

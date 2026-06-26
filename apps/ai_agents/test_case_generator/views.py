@@ -4,7 +4,7 @@ import asyncio
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from apps.utils.auth_decorators import api_key_or_csrf_exempt
+from apps.utils.auth_decorators import session_or_apikey_auth
 from django.shortcuts import render
 from asgiref.sync import sync_to_async
 from apps.llm import LLMServiceFactory
@@ -72,6 +72,14 @@ async def generate(request):
     
     # 参数获取和验证
     requirements = data.get('requirements', '')
+    # --- RAG 知识库增强 ---
+    from apps.knowledge.retriever import KnowledgeRetriever
+    retriever = KnowledgeRetriever()
+    rag_context = retriever.retrieve_and_format(requirements)
+    if rag_context:
+        requirements = requirements + "\n\n---\n" + rag_context
+    # --- RAG 结束 ---
+
     if not requirements:
         return JsonResponse({
             'success': False,
@@ -89,7 +97,7 @@ async def generate(request):
         # 使用工厂创建选定的LLM服务
         logger.info(f"使用 {llm_provider} 生成测试用例")
         # llm_service = LLMServiceFactory.create(llm_provider, **PROVIDERS.get(llm_provider, {}))
-        llm_service = LLMServiceFactory.create(llm_provider)
+        llm_service = LLMServiceFactory.create_with_fallback(agent_name="test_case_generator", preferred_provider=llm_provider)
 
         
         
@@ -125,9 +133,9 @@ async def generate(request):
 
 
 # @login_required 先屏蔽登录
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["POST"])
-async def generate_with_progress(request):
+def generate_with_progress(request):
     """
     带进度跟踪的测试用例生成API
     返回任务ID，前端通过SSE获取实时进度
@@ -145,6 +153,14 @@ async def generate_with_progress(request):
     
     # 参数获取和验证
     requirements = data.get('requirements', '')
+    # --- RAG 知识库增强 ---
+    from apps.knowledge.retriever import KnowledgeRetriever
+    retriever = KnowledgeRetriever()
+    rag_context = retriever.retrieve_and_format(requirements)
+    if rag_context:
+        requirements = requirements + "\n\n---\n" + rag_context
+    # --- RAG 结束 ---
+
     if not requirements:
         return JsonResponse({
             'success': False,
@@ -278,7 +294,7 @@ async def _generate_test_cases_async(
             
             # 创建LLM服务
             logger.info(f"任务 {task_id} - 创建LLM服务: {llm_provider}")
-            llm_service = LLMServiceFactory.create(llm_provider)
+            llm_service = LLMServiceFactory.create_with_fallback(agent_name="test_case_generator", preferred_provider=llm_provider)
             
             # 创建生成器Agent
             logger.info(f"任务 {task_id} - 创建生成器Agent")
@@ -345,7 +361,7 @@ async def _generate_test_cases_async(
         progress_manager.set_error(str(e))
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["GET"])
 def get_progress(request, task_id):
     """
@@ -432,8 +448,8 @@ def save_test_case(request):
                 requirements=requirement,
                 llm_provider=llm_provider,
                 system_id=system_id,  # 关联系统
-                status='pending'  # 默认状态为待评审
-                # created_by=request.user  # 如果需要记录创建用户，取消注释此行
+                status='pending',  # 默认状态为待评审
+                created_by=request.user if request.user.is_authenticated else None,
             )
             test_cases_to_create.append(test_case_instance)
         
@@ -462,7 +478,7 @@ def save_test_case(request):
         }, status=500)
 
 
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 @require_http_methods(["POST"])
 def upload_file(request):
     """

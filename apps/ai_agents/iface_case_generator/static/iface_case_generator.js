@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
         moduleName: 'iface_case_generator',
         progressUrl: '/api/progress/',
         cancelUrl: '/api/cancel/',
-        uploadUrl: '/iface_case_generator/upload/'
+        uploadUrl: '/iface_case_generator/'
     });
 
     // 全局变量
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function showUploadModal() {
     const progressManager = new CommonProgressManager({
         moduleName: 'iface_case_generator',
-        uploadUrl: '/iface_case_generator/upload/'
+        uploadUrl: '/iface_case_generator/'
     });
 
     progressManager.showUploadProgress({
@@ -53,29 +53,14 @@ function showUploadModal() {
     // 设置上传完成回调
     progressManager.on('complete', function(result) {
         if (result.type === 'upload') {
-            // 上传成功后处理API列表
-            // 这里需要调用后端解析接口信息
-            fetchUploadedFile();
+            // 上传成功后处理 - 数据已由后端返回
+            console.log('文件上传完成', result);
         }
     });
 }
 
-// 获取上传的文件并解析
-async function fetchUploadedFile() {
-    // 这里需要根据实际上传逻辑调整
-    // 假设文件已上传，现在获取解析后的API列表
-    try {
-        const response = await fetch('/iface_case_generator/api/get-uploaded-file/');
-        const result = await response.json();
-        
-        if (result.success) {
-            window.uploadedFilePath = result.file_path;
-            handleFileUploadSuccess(result);
-        }
-    } catch (error) {
-        console.error('获取上传文件失败:', error);
-    }
-}
+// 获取上传的文件并解析 (已废弃 - 后端无对应路由)
+// async function fetchUploadedFile() { ... }
 
 // 处理表单提交
 async function handleSubmit(event) {
@@ -97,7 +82,7 @@ async function handleSubmit(event) {
     // 使用统一进度管理器显示上传进度
     const progressManager = new CommonProgressManager({
         moduleName: 'iface_case_generator',
-        uploadUrl: '/iface_case_generator/upload/'
+        uploadUrl: '/iface_case_generator/'
     });
 
     progressManager.showUploadProgress({

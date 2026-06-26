@@ -4,317 +4,166 @@
 
 {% block extra_css %}
 <style>
-    .card {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        border-radius: 8px;
-    }
-    
-    .status-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 500;
-    }
-    
-    .status-active {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    
-    .status-inactive {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-    
-    .search-box {
-        position: relative;
-    }
-    
-    .search-box .fa-search {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
-    }
-    
-    .search-box input {
-        padding-left: 36px;
-    }
-    
-    .modal-header {
-        background-color: #007bff;
-        color: white;
-    }
-    
-    .system-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #007bff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-    }
-    
-    .system-name {
-        font-weight: 600;
-        color: #2d3436;
-    }
-    
-    .system-code {
-        font-size: 12px;
-        color: #6c757d;
-    }
-    
-    .stats-card {
-        transition: transform 0.3s, box-shadow 0.3s;
-    }
-    
-    .stats-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    }
-    
-    .toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: #fff;
-        font-size: 14px;
-        opacity: 0;
-        transform: translateX(100%);
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-    
-    .toast.show {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    
-    .toast.success {
-        background-color: #28a745;
-    }
-    
-    .toast.error {
-        background-color: #dc3545;
-    }
-    
-    .toast.warning {
-        background-color: #ffc107;
-        color: #333;
-    }
-    
-    .toast.info {
-        background-color: #17a2b8;
-    }
+.status-badge { padding: 3px 10px; border-radius: var(--radius-xl); font-size: 12px; font-weight: 600; display: inline-block; }
+.status-active { background: var(--success-muted); color: var(--success); }
+.status-inactive { background: var(--danger-muted); color: var(--danger); }
+.search-box { position: relative; }
+.search-box .fa-search { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); z-index: 2; }
+.search-box input { padding-left: 34px; }
+.system-icon-sm { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">系统归属管理</h5>
-    </div>
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
+    <h4>系统归属管理</h4>
+    <p>管理外围系统清单，维护系统信息</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4 mb-3 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="system-icon-sm" style="background: var(--accent-muted); color: var(--accent);"><i class="fas fa-server"></i></div>
             <div>
-                <p class="text-muted mb-0">管理外围系统清单，维护系统信息</p>
-            </div>
-            <button class="btn btn-primary" onclick="openAddModal()">
-                <i class="fas fa-plus mr-2"></i> 新增系统
-            </button>
-        </div>
-
-        <!-- 统计卡片 -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card stats-card p-4">
-                    <div class="d-flex align-items-center">
-                        <div class="system-icon mr-3">
-                            <i class="fas fa-server"></i>
-                        </div>
-                        <div>
-                            <p class="text-muted text-sm">总系统数</p>
-                            <p class="h3 font-bold" id="stats-total">0</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card stats-card p-4">
-                    <div class="d-flex align-items-center">
-                        <div class="system-icon mr-3" style="background-color: #28a745;">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div>
-                            <p class="text-muted text-sm">已启用</p>
-                            <p class="h3 font-bold" id="stats-active">0</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card stats-card p-4">
-                    <div class="d-flex align-items-center">
-                        <div class="system-icon mr-3" style="background-color: #dc3545;">
-                            <i class="fas fa-times-circle"></i>
-                        </div>
-                        <div>
-                            <p class="text-muted text-sm">已停用</p>
-                            <p class="h3 font-bold" id="stats-inactive">0</p>
-                        </div>
-                    </div>
-                </div>
+                <div class="stat-number" id="stats-total">0</div>
+                <div class="stat-label">总系统数</div>
             </div>
         </div>
-
-        <!-- 搜索和筛选区域 -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" class="form-control" id="search-input" placeholder="搜索系统名称或编码..." onkeyup="handleSearch()">
-                </div>
+    </div>
+    <div class="col-md-4 mb-3 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="system-icon-sm" style="background: var(--success-muted); color: var(--success);"><i class="fas fa-check-circle"></i></div>
+            <div>
+                <div class="stat-number" id="stats-active">0</div>
+                <div class="stat-label">已启用</div>
             </div>
-            <div class="col-md-3">
-                <select class="form-control" id="status-filter" onchange="handleFilter()">
-                    <option value="">全部状态</option>
-                    <option value="active">启用</option>
-                    <option value="inactive">停用</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
-                    <i class="fas fa-filter mr-1"></i> 清除筛选
-                </button>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="system-icon-sm" style="background: var(--danger-muted); color: var(--danger);"><i class="fas fa-times-circle"></i></div>
+            <div>
+                <div class="stat-number" id="stats-inactive">0</div>
+                <div class="stat-label">已停用</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 系统列表 -->
 <div class="card">
     <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px;">
+            <div class="search-box" style="width: 320px; max-width: 100%;">
+                <i class="fas fa-search"></i>
+                <input type="text" class="form-control" id="search-input" placeholder="搜索系统名称或编码..." oninput="handleSearch()">
+            </div>
+            <button class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-plus"></i> 新增系统</button>
+        </div>
+
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="systems-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;">#</th>
                         <th>系统名称</th>
                         <th>系统编码</th>
                         <th>描述</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
+                        <th style="width: 80px;">状态</th>
+                        <th style="width: 180px;">操作</th>
                     </tr>
                 </thead>
-                <tbody id="system-table-body">
-                    <!-- 数据将通过JS动态加载 -->
-                </tbody>
+                <tbody id="systems-table-body"></tbody>
             </table>
         </div>
-        <div id="empty-state" class="text-center py-8" style="display: none;">
-            <i class="fas fa-server text-muted" style="font-size: 48px;"></i>
-            <p class="text-muted mt-3">暂无系统数据</p>
-            <button class="btn btn-primary mt-2" onclick="openAddModal()">
-                <i class="fas fa-plus mr-2"></i> 新增系统
-            </button>
+
+        <div class="d-flex justify-content-between align-items-center" style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+            <small style="color: var(--text-tertiary);">共 <span id="total-count">0</span> 条记录</small>
+            <div class="d-flex align-items-center gap-2" style="font-size: 13px;">
+                <button class="btn btn-sm btn-secondary" id="prev-page" onclick="prevPage()"><i class="fas fa-chevron-left"></i></button>
+                <span id="page-info" style="color: var(--text-secondary);">1/1</span>
+                <button class="btn btn-sm btn-secondary" id="next-page" onclick="nextPage()"><i class="fas fa-chevron-right"></i></button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- 新增/编辑系统弹窗 -->
-<div class="modal fade" id="system-modal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="system-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modal-title">新增系统</h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="system-form">
-                    <input type="hidden" id="system-id">
-                    <div class="form-group">
-                        <label for="system-name">系统名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="system-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="system-code">系统编码 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="system-code" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="system-description">系统描述</label>
-                        <textarea class="form-control" id="system-description" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="system-status">状态</label>
-                        <select class="form-control" id="system-status">
-                            <option value="active">启用</option>
-                            <option value="inactive">停用</option>
-                        </select>
-                    </div>
-                </form>
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label for="system-name">系统名称</label>
+                    <input type="text" class="form-control" id="system-name" placeholder="输入系统名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="system-code">系统编码</label>
+                    <input type="text" class="form-control" id="system-code" placeholder="输入系统编码" required>
+                </div>
+                <div class="form-group">
+                    <label for="system-desc">描述</label>
+                    <textarea class="form-control" id="system-desc" rows="3" placeholder="系统描述（可选）"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="system-status">状态</label>
+                    <select class="form-control" id="system-status">
+                        <option value="active">已启用</option>
+                        <option value="inactive">已停用</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveSystem()">保存</button>
+                <button type="button" class="btn btn-primary" id="save-system-btn" onclick="saveSystem()">保存</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 关联数据弹窗 -->
-<div class="modal fade" id="related-modal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">系统关联数据</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="related-system-info" class="mb-4 p-3 bg-light rounded"></div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <h6>需求文档</h6>
-                        <div id="related-requirements" class="border rounded p-2" style="min-height: 150px;"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>测试用例</h6>
-                        <div id="related-testcases" class="border rounded p-2" style="min-height: 150px;"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>测试计划</h6>
-                        <div id="related-plans" class="border rounded p-2" style="min-height: 150px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 删除确认弹窗 -->
-<div class="modal fade" id="delete-modal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Delete Modal -->
+<div class="modal fade" id="delete-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">确认删除</h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <p>确定要删除系统 <span id="delete-system-name" class="font-weight-bold"></span> 吗？</p>
-                <p class="text-warning small">如果该系统存在关联数据，将无法删除。</p>
+                <p>确定要删除系统 <strong id="delete-system-name"></strong> 吗？此操作不可恢复。</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger" onclick="confirmDelete()">删除</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Related Data Modal -->
+<div class="modal fade" id="related-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">关联数据</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="related-system-info" style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: 14px;"></div>
+                <ul class="nav nav-tabs" id="relatedTabs" role="tablist">
+                    <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#rel-requirements">需求文档</a></li>
+                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#rel-testcases">测试用例</a></li>
+                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#rel-plans">测试计划</a></li>
+                </ul>
+                <div class="tab-content" style="padding-top: 12px;">
+                    <div class="tab-pane fade show active" id="rel-requirements"><div id="related-requirements"></div></div>
+                    <div class="tab-pane fade" id="rel-testcases"><div id="related-testcases"></div></div>
+                    <div class="tab-pane fade" id="rel-plans"><div id="related-plans"></div></div>
+                </div>
             </div>
         </div>
     </div>
@@ -323,325 +172,206 @@
 
 {% block extra_js %}
 <script>
-    let systems = [];
-    let deleteSystemId = null;
+let systems = [];
+let currentPage = 1;
+const pageSize = 10;
+let totalPages = 1;
+let deleteSystemId = null;
 
-    // 页面加载时获取系统列表
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchSystems();
-        fetchStats();
-    });
+$(document).ready(function() {
+    fetchSystems();
+    fetchStats();
+});
 
-    // 获取系统列表
-    async function fetchSystems() {
-        try {
-            const response = await fetch('/api/systems/');
-            const data = await response.json();
-            
+function fetchSystems(page) {
+    page = page || currentPage;
+    fetch('/api/systems/?page=' + page + '&page_size=' + pageSize)
+        .then(r => r.json())
+        .then(data => {
             if (data.success) {
                 systems = data.systems;
+                currentPage = data.page;
+                totalPages = data.total_pages;
                 renderSystems(systems);
+                updatePagination(data.total, data.page);
             }
-        } catch (error) {
-            showToast('获取系统列表失败', 'error');
-        }
-    }
+        });
+}
 
-    // 获取统计数据
-    async function fetchStats() {
-        try {
-            const response = await fetch('/api/systems/stats/');
-            const data = await response.json();
-            
+function fetchStats() {
+    fetch('/api/systems/stats/')
+        .then(r => r.json())
+        .then(data => {
             if (data.success) {
                 document.getElementById('stats-total').textContent = data.stats.total;
                 document.getElementById('stats-active').textContent = data.stats.active;
                 document.getElementById('stats-inactive').textContent = data.stats.inactive;
             }
-        } catch (error) {
-            console.error('获取统计数据失败:', error);
-        }
-    }
-
-    // 渲染系统列表
-    function renderSystems(systemList) {
-        const tbody = document.getElementById('system-table-body');
-        
-        if (systemList.length === 0) {
-            tbody.innerHTML = '';
-            document.getElementById('empty-state').style.display = 'block';
-            return;
-        }
-        
-        document.getElementById('empty-state').style.display = 'none';
-        
-        tbody.innerHTML = systemList.map(system => `
-            <tr>
-                <td>
-                    <div class="d-flex align-items-center">
-                        <div class="system-icon mr-3">${system.name.charAt(0)}</div>
-                        <div>
-                            <div class="system-name">${system.name}</div>
-                            <div class="system-code">${system.code}</div>
-                        </div>
-                    </div>
-                </td>
-                <td>${system.code}</td>
-                <td>${system.description || '-'}</td>
-                <td>
-                    <span class="status-badge ${system.status === 'active' ? 'status-active' : 'status-inactive'}">
-                        ${system.status_display}
-                    </span>
-                </td>
-                <td>${formatDate(system.created_at)}</td>
-                <td>
-                    <button class="btn btn-sm btn-info mr-1" onclick="viewRelated(${system.id})">
-                        <i class="fas fa-link"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary mr-1" onclick="openEditModal(${system.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="openDeleteModal(${system.id}, '${system.name}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    // 格式化日期
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
         });
-    }
+}
 
-    // 搜索处理
-    function handleSearch() {
-        const keyword = document.getElementById('search-input').value.toLowerCase();
-        const status = document.getElementById('status-filter').value;
-        filterSystems(keyword, status);
+function renderSystems(items) {
+    const tbody = document.getElementById('systems-table-body');
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 48px; color: var(--text-tertiary);"><i class="fas fa-inbox fa-2x" style="margin-bottom: 12px; display: block;"></i>暂无数据</td></tr>';
+        return;
     }
+    tbody.innerHTML = items.map((s, i) => `
+        <tr>
+            <td style="color: var(--text-tertiary);">${(currentPage - 1) * pageSize + i + 1}</td>
+            <td><strong style="color: var(--text-primary);">${s.name}</strong><br><small style="color: var(--text-tertiary);">${s.code}</small></td>
+            <td style="color: var(--text-secondary);">${s.code}</td>
+            <td style="color: var(--text-secondary); max-width: 200px;"><span class="text-truncate d-block">${s.description || '-'}</span></td>
+            <td><span class="status-badge ${s.status === 'active' ? 'status-active' : 'status-inactive'}">${s.status === 'active' ? '已启用' : '已停用'}</span></td>
+            <td>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-primary" aria-label="编辑" onclick="openEditModal(${s.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-secondary" aria-label="查看关联" onclick="viewRelated(${s.id})"><i class="fas fa-link"></i></button>
+                    <button class="btn btn-sm btn-danger" aria-label="删除" onclick="openDeleteModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
 
-    // 筛选处理
-    function handleFilter() {
-        const keyword = document.getElementById('search-input').value.toLowerCase();
-        const status = document.getElementById('status-filter').value;
-        filterSystems(keyword, status);
-    }
+function updatePagination(total, page) {
+    document.getElementById('total-count').textContent = total;
+    document.getElementById('page-info').textContent = page + '/' + totalPages;
+    document.getElementById('prev-page').disabled = page <= 1;
+    document.getElementById('next-page').disabled = page >= totalPages;
+}
 
-    // 筛选系统
-    function filterSystems(keyword, status) {
-        let filtered = systems;
-        
-        if (keyword) {
-            filtered = filtered.filter(s => 
-                s.name.toLowerCase().includes(keyword) || 
-                s.code.toLowerCase().includes(keyword)
-            );
+function prevPage() {
+    if (currentPage > 1) fetchSystems(currentPage - 1);
+}
+function nextPage() {
+    if (currentPage < totalPages) fetchSystems(currentPage + 1);
+}
+
+function handleSearch() {
+    const keyword = document.getElementById('search-input').value.trim();
+    if (!keyword) { fetchSystems(); return; }
+    fetch('/api/systems/search/?q=' + encodeURIComponent(keyword))
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) renderSystems(data.systems);
+        });
+}
+
+function openAddModal() {
+    document.getElementById('modal-title').textContent = '新增系统';
+    document.getElementById('edit-id').value = '';
+    document.getElementById('system-name').value = '';
+    document.getElementById('system-code').value = '';
+    document.getElementById('system-desc').value = '';
+    document.getElementById('system-status').value = 'active';
+    $('#system-modal').modal('show');
+}
+
+function openEditModal(id) {
+    const s = systems.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('modal-title').textContent = '编辑系统';
+    document.getElementById('edit-id').value = s.id;
+    document.getElementById('system-name').value = s.name;
+    document.getElementById('system-code').value = s.code;
+    document.getElementById('system-desc').value = s.description || '';
+    document.getElementById('system-status').value = s.status;
+    $('#system-modal').modal('show');
+}
+
+async function saveSystem() {
+    const id = document.getElementById('edit-id').value;
+    const name = document.getElementById('system-name').value.trim();
+    const code = document.getElementById('system-code').value.trim();
+    const description = document.getElementById('system-desc').value.trim();
+    const status = document.getElementById('system-status').value;
+    if (!name || !code) { showToast('请填写系统名称和编码', 'warning'); return; }
+
+    const saveBtn = document.getElementById('save-system-btn');
+    const orig = saveBtn.textContent;
+    saveBtn.disabled = true; saveBtn.textContent = '保存中...';
+
+    try {
+        const url = id ? `/api/systems/${id}/` : '/api/systems/';
+        const resp = await fetch(url, {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, code, description, status })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(`${id ? '编辑' : '新增'}系统"${name}"成功！`, 'success');
+            $('#system-modal').modal('hide');
+            fetchSystems(); fetchStats();
+        } else {
+            showToast(data.message || '操作失败', 'error');
         }
-        
-        if (status) {
-            filtered = filtered.filter(s => s.status === status);
+    } catch (e) {
+        showToast('网络错误，请检查连接后重试', 'error');
+    } finally {
+        saveBtn.disabled = false; saveBtn.textContent = orig;
+    }
+}
+
+function openDeleteModal(id, name) {
+    deleteSystemId = id;
+    document.getElementById('delete-system-name').textContent = name;
+    $('#delete-modal').modal('show');
+}
+
+async function confirmDelete() {
+    if (!deleteSystemId) return;
+    const btn = document.querySelector('#delete-modal .btn-danger');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '删除中...';
+    try {
+        const resp = await fetch(`/api/systems/${deleteSystemId}/`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message || '删除成功', 'success');
+            $('#delete-modal').modal('hide');
+            fetchSystems(); fetchStats();
+        } else {
+            showToast(data.message || '删除失败', 'warning');
         }
-        
-        renderSystems(filtered);
+    } catch (e) {
+        showToast('网络错误', 'error');
+    } finally {
+        btn.disabled = false; btn.textContent = orig;
+        deleteSystemId = null;
     }
+}
 
-    // 清除筛选
-    function clearFilters() {
-        document.getElementById('search-input').value = '';
-        document.getElementById('status-filter').value = '';
-        renderSystems(systems);
-    }
-
-    // 打开新增弹窗
-    function openAddModal() {
-        document.getElementById('modal-title').textContent = '新增系统';
-        document.getElementById('system-id').value = '';
-        document.getElementById('system-name').value = '';
-        document.getElementById('system-code').value = '';
-        document.getElementById('system-description').value = '';
-        document.getElementById('system-status').value = 'active';
-        document.getElementById('system-name').focus();
-        $('#system-modal').modal('show');
-    }
-
-    // 打开编辑弹窗
-    function openEditModal(id) {
-        const system = systems.find(s => s.id === id);
-        if (!system) return;
-        
-        document.getElementById('modal-title').textContent = '编辑系统';
-        document.getElementById('system-id').value = system.id;
-        document.getElementById('system-name').value = system.name;
-        document.getElementById('system-code').value = system.code;
-        document.getElementById('system-description').value = system.description || '';
-        document.getElementById('system-status').value = system.status;
-        $('#system-modal').modal('show');
-    }
-
-    // 打开删除确认弹窗
-    function openDeleteModal(id, name) {
-        deleteSystemId = id;
-        document.getElementById('delete-system-name').textContent = name;
-        $('#delete-modal').modal('show');
-    }
-
-    // 保存系统
-    async function saveSystem() {
-        const id = document.getElementById('system-id').value;
-        const name = document.getElementById('system-name').value.trim();
-        const code = document.getElementById('system-code').value.trim();
-        const description = document.getElementById('system-description').value.trim();
-        const status = document.getElementById('system-status').value;
-        
-        if (!name || !code) {
-            showToast('系统名称和编码不能为空', 'warning');
-            return;
+async function viewRelated(systemId) {
+    try {
+        const resp = await fetch(`/api/systems/${systemId}/related/`);
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('related-system-info').innerHTML =
+                `<strong>系统：</strong>${data.system.name} (${data.system.code})<br>` +
+                `<strong>关联统计：</strong>需求文档 ${data.related_data.counts.requirements} 个，测试用例 ${data.related_data.counts.test_cases} 个，测试计划 ${data.related_data.counts.test_plans} 个`;
+            document.getElementById('related-requirements').innerHTML = (data.related_data.requirements || []).length
+                ? data.related_data.requirements.map(i => `<div class="list-group-item">${i.title}</div>`).join('')
+                : '<p class="text-center py-4" style="color: var(--text-tertiary);">暂无数据</p>';
+            document.getElementById('related-testcases').innerHTML = (data.related_data.test_cases || []).length
+                ? data.related_data.test_cases.map(i => `<div class="list-group-item">${i.title}</div>`).join('')
+                : '<p class="text-center py-4" style="color: var(--text-tertiary);">暂无数据</p>';
+            document.getElementById('related-plans').innerHTML = (data.related_data.test_plans || []).length
+                ? data.related_data.test_plans.map(i => `<div class="list-group-item">${i.title}</div>`).join('')
+                : '<p class="text-center py-4" style="color: var(--text-tertiary);">暂无数据</p>';
+            $('#related-modal').modal('show');
         }
-        
-        // 禁用保存按钮，防止重复提交
-        const saveButton = document.querySelector('#system-modal .btn-primary');
-        const originalText = saveButton.textContent;
-        saveButton.disabled = true;
-        saveButton.textContent = '保存中...';
-        
-        try {
-            const url = id ? `/api/systems/${id}/` : '/api/systems/';
-            const method = id ? 'PUT' : 'POST';
-            
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ name, code, description, status })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const action = id ? '编辑' : '新增';
-                showToast(`${action}系统"${name}"成功！`, 'success');
-                $('#system-modal').modal('hide');
-                fetchSystems();
-                fetchStats();
-            } else {
-                showToast(data.message || '操作失败，请稍后重试', 'error');
-            }
-        } catch (error) {
-            console.error('保存系统时出错:', error);
-            showToast('网络错误，请检查连接后重试', 'error');
-        } finally {
-            // 恢复保存按钮状态
-            saveButton.disabled = false;
-            saveButton.textContent = originalText;
-        }
-    }
+    } catch (e) { showToast('获取关联数据失败', 'error'); }
+}
 
-    // 删除系统
-    async function confirmDelete() {
-        if (!deleteSystemId) return;
-        
-        // 禁用删除按钮，防止重复提交
-        const deleteButton = document.querySelector('#delete-modal .btn-danger');
-        const originalText = deleteButton.textContent;
-        deleteButton.disabled = true;
-        deleteButton.textContent = '删除中...';
-        
-        try {
-            const response = await fetch(`/api/systems/${deleteSystemId}/`, {
-                method: 'DELETE'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showToast(data.message || '删除成功', 'success');
-                $('#delete-modal').modal('hide');
-                fetchSystems();
-                fetchStats();
-            } else {
-                showToast(data.message || '删除失败，请稍后重试', 'warning');
-            }
-        } catch (error) {
-            console.error('删除系统时出错:', error);
-            showToast('网络错误，请检查连接后重试', 'error');
-        } finally {
-            // 恢复删除按钮状态
-            deleteButton.disabled = false;
-            deleteButton.textContent = originalText;
-            deleteSystemId = null;
-        }
-    }
-
-    // 查看关联数据
-    async function viewRelated(systemId) {
-        try {
-            const response = await fetch(`/api/systems/${systemId}/related/`);
-            const data = await response.json();
-            
-            if (data.success) {
-                document.getElementById('related-system-info').innerHTML = `
-                    <strong>系统：</strong>${data.system.name} (${data.system.code})<br>
-                    <strong>关联统计：</strong>需求文档 ${data.related_data.counts.requirements} 个，测试用例 ${data.related_data.counts.test_cases} 个，测试计划 ${data.related_data.counts.test_plans} 个
-                `;
-                
-                renderRelatedList('related-requirements', data.related_data.requirements);
-                renderRelatedList('related-testcases', data.related_data.test_cases);
-                renderRelatedList('related-plans', data.related_data.test_plans);
-                
-                $('#related-modal').modal('show');
-            }
-        } catch (error) {
-            showToast('获取关联数据失败', 'error');
-        }
-    }
-
-    // 渲染关联列表
-    function renderRelatedList(elementId, items) {
-        const element = document.getElementById(elementId);
-        
-        if (!items || items.length === 0) {
-            element.innerHTML = '<p class="text-muted text-center py-4">暂无数据</p>';
-            return;
-        }
-        
-        element.innerHTML = items.map(item => `
-            <div class="mb-2 p-2 bg-light rounded">
-                <strong>${item.title}</strong>
-            </div>
-        `).join('');
-    }
-
-    // 显示提示
-    function showToast(message, type) {
-        const toastContainer = document.createElement('div');
-        toastContainer.className = `toast ${type}`;
-        toastContainer.innerHTML = `
-            <span class="toast-icon"><i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i></span>
-            <span class="toast-message">${message}</span>
-        `;
-        document.body.appendChild(toastContainer);
-        
-        // 显示动画
-        setTimeout(() => {
-            toastContainer.classList.add('show');
-        }, 10);
-        
-        // 3秒后隐藏并移除
-        setTimeout(() => {
-            toastContainer.classList.remove('show');
-            setTimeout(() => {
-                toastContainer.remove();
-            }, 300);
-        }, 3000);
-    }
+function showToast(message, type) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-exclamation-triangle'}"></i><span>${message}</span>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('show'), 10);
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
+}
 </script>
 {% endblock %}

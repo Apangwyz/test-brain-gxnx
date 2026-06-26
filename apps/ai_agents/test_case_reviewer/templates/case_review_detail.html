@@ -5,32 +5,92 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TestBrain - 测试用例AI评审</title>
-    <!-- 引入 Bootstrap CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
-    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <style>
         body {
-            padding: 20px;
-            background-color: #f8f9fa;
+            padding: 24px;
+            min-height: 100vh;
         }
-        .card {
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
         }
-        textarea {
+        .detail-section {
+            margin-bottom: 20px;
+        }
+        .detail-section .section-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .detail-section .section-value {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.7;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            min-height: 44px;
+            white-space: pre-wrap;
+        }
+        .detail-section textarea.section-value {
             resize: vertical;
+            min-height: 80px;
+        }
+        .detail-section select.section-value {
+            min-height: 40px;
+            appearance: auto;
+        }
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .review-result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        @media (max-width: 600px) {
+            .review-result-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .btn-group-footer {
+            display: flex;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">测试用例AI评审</h5>
-            </div>
+        <div class="page-title">
+            <i class="fas fa-robot" style="color: var(--accent);"></i>
+            测试用例AI评审
+        </div>
+
+        <div class="card" style="overflow: visible;">
             <div class="card-body">
                 <form id="caseReviewForm">
-                    <div class="form-group">
-                        <label for="status">状态</label>
+                    <input type="hidden" id="test_case_id" name="test_case_id" value="{{ test_case_id }}">
+
+                    <div class="detail-section">
+                        <label class="section-label" for="status">状态<span class="required-mark">*</span></label>
                         <select class="form-control" id="status" name="status">
                             <option value="pending">待评审</option>
                             <option value="approved">评审通过</option>
@@ -38,11 +98,10 @@
                         </select>
                     </div>
 
-                    <!-- 新增的三个下拉框，使用 Bootstrap 的栅格系统进行横向排列 -->
-                    <div class="form-group">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="bu">BU</label>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="detail-section">
+                                <label class="section-label" for="bu">BU</label>
                                 <select class="form-control" id="bu" name="bu">
                                     <option value="">请选择 BU</option>
                                     <option value="education">教育</option>
@@ -56,16 +115,20 @@
                                     <option value="operation_platform">运营平台</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label for="feature">Feature</label>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="detail-section">
+                                <label class="section-label" for="feature">Feature</label>
                                 <select class="form-control" id="feature" name="feature">
                                     <option value="">请选择 Feature</option>
                                     <option value="feature1">Feature1</option>
                                     <option value="feature2">Feature2</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label for="priority">Priority</label>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="detail-section">
+                                <label class="section-label" for="priority">Priority</label>
                                 <select class="form-control" id="priority" name="priority">
                                     <option value="">请选择优先级</option>
                                     <option value="p0">P0</option>
@@ -77,251 +140,184 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="description">用例描述</label>
+                    <div class="detail-section">
+                        <label class="section-label" for="description">用例描述<span class="required-mark">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label for="test_steps">测试步骤</label>
+                    <div class="detail-section">
+                        <label class="section-label" for="test_steps">测试步骤</label>
                         <textarea class="form-control" id="test_steps" name="test_steps" rows="5"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label for="expected_results">预期结果</label>
+                    <div class="detail-section">
+                        <label class="section-label" for="expected_results">预期结果</label>
                         <textarea class="form-control" id="expected_results" name="expected_results" rows="5"></textarea>
                     </div>
 
-                    <!-- AI 评审结果 - 分字段显示 -->
-                    <div class="form-group">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="review_conclusion">评审结论</label>
-                                <input type="text" class="form-control" id="review_conclusion" readonly>
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                        <div class="section-label" style="margin-bottom: 12px;">AI 评审结果</div>
+                        <div class="review-result-grid">
+                            <div class="detail-section">
+                                <label class="section-label" for="review_conclusion">评审结论</label>
+                                <textarea class="form-control" id="review_conclusion" name="review_conclusion" rows="2"></textarea>
                             </div>
-                            <div class="col-md-6">
-                                <label for="review_level">评审等级</label>
-                                <input type="text" class="form-control" id="review_level" readonly>
+                            <div class="detail-section">
+                                <label class="section-label" for="review_level">评审等级</label>
+                                <textarea class="form-control" id="review_level" name="review_level" rows="2"></textarea>
+                            </div>
+                            <div class="detail-section">
+                                <label class="section-label" for="review_opinions">评审意见</label>
+                                <textarea class="form-control" id="review_opinions" name="review_opinions" rows="4"></textarea>
+                            </div>
+                            <div class="detail-section">
+                                <label class="section-label" for="improvements">待改进项</label>
+                                <textarea class="form-control" id="improvements" name="improvements" rows="4"></textarea>
+                            </div>
+                            <div class="detail-section">
+                                <label class="section-label" for="advantages">优点</label>
+                                <textarea class="form-control" id="advantages" name="advantages" rows="3"></textarea>
+                            </div>
+                            <div class="detail-section">
+                                <label class="section-label" for="other_suggestions">其他建议</label>
+                                <textarea class="form-control" id="other_suggestions" name="other_suggestions" rows="3"></textarea>
                             </div>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="review_opinions">评审意见</label>
-                        <textarea class="form-control" id="review_opinions" rows="4" readonly></textarea>
+                    <div class="btn-group-footer">
+                        <button type="button" class="btn btn-primary" id="aiReviewBtn">
+                            <i class="fas fa-robot"></i> AI评审
+                        </button>
+                        <button type="button" class="btn btn-success" id="saveBtn">
+                            <i class="fas fa-save"></i> 保存
+                        </button>
                     </div>
-
-                    <div class="form-group">
-                        <label for="improvements">待改进项</label>
-                        <textarea class="form-control" id="improvements" rows="3" readonly></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="advantages">优点</label>
-                        <textarea class="form-control" id="advantages" rows="2" readonly></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="other_suggestions">其他建议</label>
-                        <textarea class="form-control" id="other_suggestions" rows="2" readonly></textarea>
-                    </div>
-
-                    <input type="hidden" id="test_case_id" name="test_case_id">
                 </form>
-            </div>
-            <div class="card-footer text-right">
-                <button type="button" class="btn btn-primary" id="startReviewBtn">开始评审</button>
-                <button type="button" class="btn btn-success" id="saveBtn">保存</button>
             </div>
         </div>
     </div>
 
-    <!-- 引入 jQuery 和 Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="{% static 'js/extra/bootstrap.bundle.min.js' %}"></script>
-    
+    <script src="{% static 'js/extra/jquery.min.js' %}"></script>
+    <script src="{% static 'js/extra/all.min.js' %}"></script>
+    <script src="{% static 'js/extra/bootstrap.bundle.min.js' %}" data-no-maps></script>
+
     <script>
-    // 获取CSRF Token的辅助函数
     function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+        let cv = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return cv ? cv.pop() : '';
     }
 
-    // 页面加载完成后的初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        // 从URL获取测试用例ID并加载数据
-        const urlParams = new URLSearchParams(window.location.search);
-        const testCaseId = urlParams.get('id');
-        
+    $(document).ready(function() {
+        // Get test_case_id from URL
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const testCaseId = pathParts[pathParts.length - 1] || '{{ test_case_id|default:"" }}';
+        $('#test_case_id').val(testCaseId);
+
+        // Load test case data
         if (testCaseId) {
-            // 获取测试用例数据
-            fetch(`api/test-case/${testCaseId}/`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // 填充表单数据
-                document.getElementById('test_case_id').value = data.id;
-                document.getElementById('description').value = data.description;
-                document.getElementById('test_steps').value = data.test_steps;
-                document.getElementById('expected_results').value = data.expected_results;
-                
-                // 正确设置状态下拉框的值
-                const statusSelect = document.getElementById('status');
-                for(let i = 0; i < statusSelect.options.length; i++) {
-                    if(statusSelect.options[i].value === data.status) {
-                        statusSelect.selectedIndex = i;
-                        break;
+            $.getJSON('/test_case_reviewer/case-review-detail/api/test-case/' + testCaseId + '/', function(data) {
+                if (data.success) {
+                    const tc = data.test_case;
+                    $('#status').val(tc.status || 'pending');
+                    $('#bu').val(tc.bu || '');
+                    $('#feature').val(tc.feature || '');
+                    $('#priority').val(tc.priority || '');
+                    $('#description').val(tc.description || '');
+                    $('#test_steps').val(tc.test_steps || '');
+                    $('#expected_results').val(tc.expected_results || '');
+                    if (tc.review_result) {
+                        const r = tc.review_result;
+                        $('#review_conclusion').val(r.评审结论 || '');
+                        $('#review_level').val(r.评审等级 || '');
+                        $('#review_opinions').val(r.评审意见 || '');
+                        $('#improvements').val(r.待改进项 || '');
+                        $('#advantages').val(r.优点 || '');
+                        $('#other_suggestions').val(r.其他建议 || '');
                     }
                 }
-                
-                console.log('加载的状态值:', data.status);
-            })
-            .catch(error => {
-                console.error('获取测试用例数据失败:', error);
-                alert('获取测试用例数据失败，请查看控制台获取详细信息');
             });
         }
 
-        // 开始评审按钮点击事件
-        document.getElementById('startReviewBtn').onclick = function() {
-            const testCaseId = document.getElementById('test_case_id').value;
-            const button = this;
-            
-            // 显示加载状态
-            document.getElementById('review_conclusion').value = '评审中...';
-            document.getElementById('review_level').value = '';
-            document.getElementById('review_opinions').value = 'AI正在评审中，请稍候...';
-            document.getElementById('improvements').value = '';
-            document.getElementById('advantages').value = '';
-            document.getElementById('other_suggestions').value = '';
-            button.disabled = true;  // 禁用按钮防止重复点击
-            
-            fetch('api/review/', {
+        // AI Review
+        $('#aiReviewBtn').click(function() {
+            const btn = $(this);
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 评审中...');
+            $.ajax({
+                url: '/test_case_reviewer/case-review-detail/api/review/',
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                contentType: 'application/json',
+                data: JSON.stringify({ test_case_id: testCaseId }),
+                success: function(data) {
+                    if (data.success) {
+                        const r = data.review_result;
+                        $('#review_conclusion').val(r.评审结论 || '');
+                        $('#review_level').val(r.评审等级 || '');
+                        $('#review_opinions').val(r.评审意见 || '');
+                        $('#improvements').val(r.待改进项 || '');
+                        $('#advantages').val(r.优点 || '');
+                        $('#other_suggestions').val(r.其他建议 || '');
+                        alert('AI评审完成！');
+                    } else {
+                        alert('评审失败：' + (data.message || '未知错误'));
+                    }
                 },
-                body: JSON.stringify({
-                    test_case_id: testCaseId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // 填充结构化的评审结果
-                    const result = data.review_result;
-                    document.getElementById('review_conclusion').value = result.评审结论 || '';
-                    document.getElementById('review_level').value = result.评审等级 || '';
-                    document.getElementById('review_opinions').value = result.评审意见 || '';
-                    document.getElementById('improvements').value = result.待改进项 || '';
-                    document.getElementById('advantages').value = result.优点 || '';
-                    document.getElementById('other_suggestions').value = result.其他建议 || '';
-                    
-                    alert('AI评审完成！');
-                } else {
-                    document.getElementById('review_conclusion').value = '评审失败';
-                    document.getElementById('review_opinions').value = '评审失败：' + data.message;
-                    alert('评审失败：' + data.message);
+                error: function() { alert('评审请求失败'); },
+                complete: function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-robot"></i> AI评审');
                 }
-            })
-            .catch(error => {
-                console.error('评审请求失败:', error);
-                document.getElementById('review_conclusion').value = '请求失败';
-                document.getElementById('review_opinions').value = '评审请求失败，请查看控制台获取详细信息';
-                alert('评审请求失败，请查看控制台获取详细信息');
-            })
-            .finally(() => {
-                button.disabled = false;  // 恢复按钮可用状态
             });
-        };
+        });
 
-        // 保存按钮点击事件
-        document.getElementById('saveBtn').onclick = function() {
-            const form = document.getElementById('caseReviewForm');
+        // Save
+        $('#saveBtn').click(function() {
             const formData = {
-                test_case_id: form.test_case_id.value,
-                status: form.status.value,
-                bu: form.bu.value,
-                feature: form.feature.value,
-                priority: form.priority.value,
-                description: form.description.value,
-                test_steps: form.test_steps.value,
-                expected_results: form.expected_results.value
+                test_case_id: testCaseId,
+                status: $('#status').val(),
+                bu: $('#bu').val(),
+                feature: $('#feature').val(),
+                priority: $('#priority').val(),
+                description: $('#description').val(),
+                test_steps: $('#test_steps').val(),
+                expected_results: $('#expected_results').val()
             };
-
-            fetch('api/update-test-case/', {
+            $.ajax({
+                url: '/test_case_reviewer/case-review-detail/api/update-test-case/',
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(data) {
+                    if (data.success) {
+                        alert('保存成功！');
+                        if (window.opener) { window.opener.location.reload(); }
+                        window.close();
+                    } else {
+                        alert('保存失败：' + (data.message || '未知错误'));
+                    }
                 },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('保存成功！');
-                    window.close();
-                    window.opener.location.reload();
-                } else {
-                    alert('保存失败：' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('保存失败:', error);
-                alert('保存失败，请查看控制台获取详细信息');
+                error: function() { alert('保存请求失败'); }
             });
-        };
+        });
 
-        // 初始化 Feature 下拉框
-        initFeatureSelect();
-    });
-
-    // Feature 下拉框初始化
-    function initFeatureSelect() {
+        // Feature select - add custom option
         const featureSelect = document.getElementById('feature');
-        
-        const addNewOption = document.createElement('option');
-        addNewOption.value = 'add_new';
-        addNewOption.textContent = '+ 添加新 Feature';
-        featureSelect.appendChild(addNewOption);
-
-        // 监听选择变化
+        const addNewOpt = document.createElement('option');
+        addNewOpt.value = 'add_new';
+        addNewOpt.textContent = '+ 添加新 Feature';
+        featureSelect.appendChild(addNewOpt);
         featureSelect.addEventListener('change', function() {
             if (this.value === 'add_new') {
-                const newFeature = prompt('请输入新的 Feature 名称：');
-                if (newFeature && newFeature.trim()) {
-                    // 创建新的选项
-                    const option = document.createElement('option');
-                    option.value = newFeature.toLowerCase().replace(/\s+/g, '_');
-                    option.textContent = newFeature;
-                    
-                    // 插入到倒数第二个位置（在"添加新 Feature"选项之前）
-                    featureSelect.insertBefore(option, addNewOption);
-                    
-                    // 选中新添加的选项
-                    this.value = option.value;
-                } else {
-                    // 如果用户取消或输入为空，恢复到默认选项
-                    this.value = '';
-                }
+                const name = prompt('请输入新的 Feature 名称：');
+                if (name && name.trim()) {
+                    const opt = document.createElement('option');
+                    opt.value = name.toLowerCase().replace(/\s+/g, '_');
+                    opt.textContent = name;
+                    featureSelect.insertBefore(opt, addNewOpt);
+                    this.value = opt.value;
+                } else { this.value = ''; }
             }
         });
-    }
+    });
     </script>
 </body>
-</html> 
+</html>

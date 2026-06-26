@@ -12,7 +12,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from apps.utils.auth_decorators import api_key_required, api_key_or_csrf_exempt
+from apps.utils.auth_decorators import api_key_required, session_or_apikey_auth
 from django.conf import settings
 
 from ..core.models import KnowledgeBase
@@ -21,7 +21,6 @@ from apps.utils.logger_manager import get_logger
 from apps.knowledge.milvus_helper import process_singel_file
 
 
-from django.contrib.auth.decorators import login_required
 
 
 logger = get_logger(__name__)
@@ -29,14 +28,13 @@ knowledge_service = get_knowledgeService_instance()
 
 
 @login_required
-@login_required
 def knowledge_view(request):
     """知识库管理页面"""
     return render(request, 'knowledge.html')
 
 # @login_required 先屏蔽登录
 @require_http_methods(["POST"])
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 def add_knowledge(request):
     """添加知识条目"""
     try:
@@ -92,7 +90,7 @@ def knowledge_list(request):
 
 # @login_required 先屏蔽登录
 @require_http_methods(["POST"])
-@api_key_or_csrf_exempt
+@session_or_apikey_auth
 def search_knowledge(request):
     """搜索知识库"""
     try:
@@ -321,3 +319,34 @@ def upload_single_file(request):
     })
 
 
+
+
+@require_http_methods(["POST"])
+
+@require_http_methods(["POST"])
+def retrieve_knowledge(request):
+    """知识库检索 API"""
+    import json
+    data = json.loads(request.body)
+    query = data.get('query', '')
+    top_k = data.get('top_k', 5)
+
+    from ..knowledge.retriever import KnowledgeRetriever
+    retriever = KnowledgeRetriever(top_k=top_k)
+    results = retriever.retrieve(query)
+    return JsonResponse({'results': results})
+
+
+@require_http_methods(["GET"])
+def knowledge_list_select(request):
+    """知识库文档列表（供前端选择器用）"""
+    from ..core.models import KnowledgeBase
+    page = int(request.GET.get('page', 1))
+    search = request.GET.get('search', '')
+    qs = KnowledgeBase.objects.all()
+    if search:
+        qs = qs.filter(title__icontains=search)
+    total = qs.count()
+    items = qs.order_by('-created_at')[(page-1)*20:page*20]
+    data = [{'id': k.id, 'title': k.title, 'created_at': k.created_at.isoformat()} for k in items]
+    return JsonResponse({'items': data, 'total': total, 'page': page})

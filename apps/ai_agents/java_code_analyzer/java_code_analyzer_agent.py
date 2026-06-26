@@ -73,7 +73,7 @@ class JavaCodeAnalyzerAgent:
             provider_name = 'deepseek'
         
         # 简化调用：工厂函数会自动从settings.py读取所有配置
-        self.llm = LLMServiceFactory.create(provider_name)
+        self.llm = LLMServiceFactory.create_with_fallback(agent_name="java_code_analyzer", preferred_provider=provider_name)
         
         # 创建工具（传递 project_id）
         self.tools = create_langchain_tools(repo_path, java_analyzer_service_url, self.project_id)

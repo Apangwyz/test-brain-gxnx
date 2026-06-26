@@ -3,45 +3,70 @@
 {% block title %}TestBrain - 首页{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        欢迎使用 TestBrain 测试用例管理平台
+<div class="page-header">
+    <h4>仪表盘</h4>
+    <p>TestBrain 测试用例管理平台概览</p>
+</div>
+
+<div class="row" style="margin-bottom: 24px;">
+    <div class="col-md-3 mb-4 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-4">
+            <div class="stat-icon" style="background: rgba(59,130,246,0.12); color: #3b82f6;">
+                <i class="fas fa-file-alt"></i>
+            </div>
+            <div>
+                <div class="stat-number">{{ total_test_cases }}</div>
+                <div class="stat-label">总测试用例数</div>
+            </div>
+        </div>
     </div>
+    <div class="col-md-3 mb-4 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-4">
+            <div class="stat-icon" style="background: rgba(245,158,11,0.12); color: #f59e0b;">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <div class="stat-number">{{ pending_count }}</div>
+                <div class="stat-label">待评审</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-4">
+            <div class="stat-icon" style="background: rgba(34,197,94,0.12); color: #22c55e;">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div>
+                <div class="stat-number">{{ approved_count }}</div>
+                <div class="stat-label">评审通过</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4 mb-md-0">
+        <div class="stat-card d-flex align-items-center gap-4">
+            <div class="stat-icon" style="background: rgba(239,68,68,0.12); color: #ef4444;">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div>
+                <div class="stat-number">{{ rejected_count }}</div>
+                <div class="stat-label">评审未通过</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3>{{ total_test_cases }}</h3>
-                        <p class="mb-0">总测试用例数</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3>{{ pending_count }}</h3>
-                        <p class="mb-0">待评审</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3>{{ approved_count }}</h3>
-                        <p class="mb-0">评审通过</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3>{{ rejected_count }}</h3>
-                        <p class="mb-0">评审未通过</p>
-                    </div>
+        <div class="d-flex align-items-center gap-3" style="margin-bottom: 4px;">
+            <div style="width: 4px; height: 24px; border-radius: 2px; background: #3b82f6;"></div>
+            <div>
+                <div style="font-weight: 600; font-size: 15px; color: #e8e8f0;">欢迎使用 TestBrain</div>
+                <div style="font-size: 14px; color: #9090a8; margin-top: 8px; line-height: 1.7;">
+                    平台集成了 AI 驱动的测试用例生成、智能评审、需求分析等功能。
+                    通过左侧导航栏可以快速访问各个功能模块。
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}

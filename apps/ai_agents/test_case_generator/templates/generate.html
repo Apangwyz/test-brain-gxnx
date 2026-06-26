@@ -4,22 +4,73 @@
 {% block title %}TestBrain - 测试用例生成{% endblock %}
 
 {% block extra_css %}
-<!-- 进度展示组件样式 -->
 <link rel="stylesheet" href="{% static 'progress.css' %}">
+<style>
+/* Adopted docs panel */
+.adopted-docs-section {
+    margin-bottom: 20px;
+}
+.adopted-doc-check-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    background: var(--bg-tertiary);
+    transition: background 0.2s;
+}
+.adopted-doc-check-item:hover {
+    background: var(--accent-muted);
+}
+.adopted-doc-check-item input[type="checkbox"] {
+    margin-top: 3px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.adopted-doc-check-item .doc-info {
+    flex: 1;
+}
+.adopted-doc-check-item .doc-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+.adopted-doc-check-item .doc-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.adopted-doc-check-item .doc-score {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--success);
+    margin-left: 12px;
+    flex-shrink: 0;
+}
+.no-adopted-hint {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+}
+</style>
 {% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <h4>测试用例生成</h4>
+    <p>基于 AI 自动生成高质量测试用例</p>
+</div>
+
 <div class="card">
-    <div class="card-header">
-        <span style="font-size: 1.2em; color: #d93025; font-style: italic;">如果要生成跟公司业务更贴合的测试用例，请先把项目相关文档上传到知识库，该过程大概耗时几分钟！</span>
-    </div>
     <div class="card-body">
         <form id="generate-form" method="post">
             {% csrf_token %}
-            
-            <div class="form-group mb-3">
-                <label for="llm-provider">选择大模型:</label>
-                <select class="form-control" id="llm-provider" name="llm_provider">
+
+            <div class="form-group">
+                <label for="llm-provider">选择大模型<span class="required-mark">*</span></label>
+                <select class="form-control" id="llm-provider" style="min-height: 40px;" name="llm_provider">
                     {% for provider_key, provider_config in llm_providers.items %}
                         <option value="{{ provider_key }}" {% if llm_provider == provider_key %}selected{% endif %}>
                             {{ provider_config.name }}
@@ -27,584 +78,166 @@
                     {% endfor %}
                 </select>
             </div>
-            
-            <div class="form-group mb-3">
-                <label for="system-select">选择所属系统:</label>
-                <select class="form-control" id="system-select" name="system_id">
-                    <option value="">-- 请选择系统 --</option>
-                    {% for system in systems %}
-                        <option value="{{ system.id }}">{{ system.name }} ({{ system.code }})</option>
-                    {% endfor %}
-                </select>
-                <small class="form-text text-muted">选择测试用例所属的系统，只显示已启用的系统</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="file-upload">上传需求文档:</label>
-                <div class="custom-file-upload">
-                    <div class="upload-area-container">
-                        <div class="upload-area" id="upload-area">
-                            <div class="upload-icon">
-                                <i class="fas fa-upload fa-3x text-primary"></i>
-                            </div>
-                            <p class="upload-text">点击或拖拽文件到此处上传</p>
-                            <p class="upload-hint">支持 .docx、.md、.txt、.pdf 格式，最大50MB，可多选</p>
-                        </div>
-                        <input type="file" id="file-input" name="documents" multiple accept=".docx,.md,.txt,.pdf" class="file-input-overlay">
-                    </div>
-                    <div id="uploaded-files" class="mt-3"></div>
-                    <div id="upload-progress" class="mt-2" style="display: none;">
-                        <div class="progress">
-                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-                        </div>
-                        <p class="progress-text mt-1"></p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="system-select">选择所属系统<span class="required-mark">*</span></label>
+                        <select class="form-control" id="system-select" style="min-height: 40px;" name="system_id">
+                            <option value="">-- 请选择系统 --</option>
+                            {% for system in systems %}
+                                <option value="{{ system.id }}">{{ system.name }} ({{ system.code }})</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">选择测试用例所属的系统，只显示已启用的系统</small>
                     </div>
                 </div>
             </div>
-            
-            <div class="form-group">
-                <label id="input-text-label" for="input-text">需求描述:</label>
-                <textarea id="input-text" name="requirements" class="form-control" rows="10">{{ requirements }}</textarea>
-                <small class="form-text text-muted">您可以直接输入需求描述，或上传需求文档（文档内容将自动填充到此文本框）</small>
+
+            <!-- 已采纳需求文档选择 -->
+            <div class="adopted-docs-section">
+                <div class="card">
+                    <div class="card-header" style="padding: 8px 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <h6 class="mb-0">📋 从已采纳的需求文档选择（可选）</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="fillSelectedBtn" style="display: none;">
+                            确定选择 (<span id="selectedCount">0</span>)
+                        </button>
+                    </div>
+                    <div class="card-body" style="padding: 12px 16px;" id="adoptedDocsContainer">
+                        <div class="no-adopted-hint" id="noAdoptedHint">
+                            <i class="fas fa-inbox" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
+                            暂无已采纳的需求文档<br>
+                            <small>请先在「需求分析」功能中分析并采纳需求文档</small>
+                        </div>
+                        <div id="adoptedDocsList" style="display: none;"></div>
+                    </div>
+                </div>
             </div>
-            
+
+            <div class="form-group">
+                <label for="input-text">需求描述<span class="required-mark">*</span></label>
+                <textarea id="input-text" name="requirements" class="form-control" rows="10" placeholder="直接输入需求描述，或上传需求文档后自动填充...">{{ requirements }}</textarea>
+                <small class="form-text text-muted">可直接输入需求描述，或在上方选择已采纳的需求文档自动填入</small>
+            </div>
+
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="case_design_method">测试用例设计方法:</label>
-                    <select class="form-control selectpicker" id="case_design_methods" name="case_design_methods" multiple data-live-search="true">
-                        <option value="equivalence_partitioning">等价类划分法</option>
-                        <option value="boundary_value">边界值分析法</option>
-                        <option value="decision_table">判定表法</option>
-                        <option value="cause_effect">因果图法</option>
-                        <option value="orthogonal_array">正交分析法</option>
-                        <option value="scenario">场景法</option>
-                    </select>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="case_design_methods">测试用例设计方法</label>
+                        <select class="form-control selectpicker" id="case_design_methods" name="case_design_methods" multiple data-live-search="true" data-container="body">
+                            <option value="equivalence_partitioning">等价类划分法</option>
+                            <option value="boundary_value">边界值分析法</option>
+                            <option value="decision_table">判定表法</option>
+                            <option value="cause_effect">因果图法</option>
+                            <option value="orthogonal_array">正交分析法</option>
+                            <option value="scenario">场景法</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label for="case_categories">用例类型:</label>
-                    <select class="form-control selectpicker" id="case_categories" name="case_categories" multiple data-live-search="true">
-                        <option value="functional">功能测试</option>
-                        <option value="performance">性能测试</option>
-                        <option value="compatibility">兼容性测试</option>
-                        <option value="security">安全性测试</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label for="case_count">生成用例条数:
-                        <i class="fas fa-info-circle text-primary" 
-                           data-toggle="tooltip" 
-                           data-html="true"
-                           data-placement="right"
-                           data-original-title="1. 由于大模型机制所限，大模型不一定返回足够数量的用例，比如你指定了100条，但大模型可能仅返回20条。<br>2. 大模型所需生成用例数量越多，耗时越久。">
-                        </i>
-                    </label>
-                    <select class="form-control" id="case_count" name="case_count">
-                        <option value="1">1条</option>
-                        <option value="10">10条</option>
-                        <option value="20">20条</option>
-                        <option value="30">30条</option>
-                        <option value="40">40条</option>
-                        <option value="50">50条</option>
-                    </select>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="case_categories">用例类型</label>
+                        <select class="form-control selectpicker" id="case_categories" name="case_categories" multiple data-live-search="true" data-container="body">
+                            <option value="functional">功能测试</option>
+                            <option value="performance">性能测试</option>
+                            <option value="compatibility">兼容性测试</option>
+                            <option value="security">安全测试</option>
+                            <option value="usability">易用性测试</option>
+                            <option value="reliability">可靠性测试</option>
+                        </select>
+                    </div>
                 </div>
             </div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label for="case_count">生成测试用例条数<span class="required-mark">*</span></label>
+                        <div class="input-group" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="case_count" name="case_count" value="10" min="1" max="50" style="min-height: 40px;">
+                            <div class="input-group-append">
+                                <span class="input-group-text">条</span>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">每次最多生成 50 条测试用例</small>
+                    </div>
+                </div>
+            </div>
+
             
-            <div class="text-right">
-                <button type="submit" id="generate-button" class="btn btn-primary">生成测试用例</button>
+            <div class="knowledge-ref-section" style="margin-top: 16px;">
+                <div class="card">
+                    <div class="card-header" style="padding: 8px 16px;">
+                        <h6 class="mb-0">📄 关联知识库文档</h6>
+                    </div>
+                    <div class="card-body" style="padding: 12px 16px;">
+                        <div id="auto-retrieve-results">
+                            <small class="text-muted">提交后将自动检索知识库中的相关文档，增强生成准确性</small>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="browseKnowledgeBtn">
+                                📚 浏览知识库
+                            </button>
+                        </div>
+                        <input type="hidden" name="selected_kb_ids" id="selectedKbIds" value="">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2" style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <i class="fas fa-magic"></i> 生成测试用例
+                </button>
+                <button type="button" class="btn btn-secondary" id="reset-btn">
+                    <i class="fas fa-undo"></i> 重置
+                </button>
             </div>
         </form>
-        
-        <div id="loading-indicator" style="display: none;" class="text-center mt-3">
-            <div class="spinner"></div>
-            <p>正在生成测试用例，请稍候...</p>
-        </div>
     </div>
 </div>
 
-{% if test_cases %}
-<div id="result-container" class="mt-4">
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">生成的测试用例</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                    <thead class="thead-light">
-                        <tr>
-                            <th width="5%">编号</th>
-                            <th width="25%">测试用例描述</th>
-                            <th width="35%">测试步骤</th>
-                            <th width="35%">预期结果</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for test_case in test_cases %}
-                            <tr>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ test_case.description }}</td>
-                                <td>
-                                    {% for step in test_case.test_steps %}
-                                        <div class="mb-2">{{ step }}</div>
-                                    {% endfor %}
-                                </td>
-                                <td>
-                                    {% for result in test_case.expected_results %}
-                                        <div class="mb-2">{{ result }}</div>
-                                    {% endfor %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+<!-- Progress Modal (for long-running generation) -->
+<div class="modal" id="progressModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">生成进度</h5>
+            </div>
+            <div class="modal-body" id="progressContent">
+                <div class="text-center py-5">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-secondary); margin-top: 16px;">正在生成测试用例，请稍候...</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-{# 修改 JSON 数据的存储方式 #}
-{{ test_cases|json_script:"test-cases-data" }}
-
-<div class="text-right mt-3" id="save-container">
-    <button id="save-button" class="btn btn-success">保存测试用例</button>
-</div>
-{% endif %}
-
-<style>
-/* 文件上传区域容器 */
-.upload-area-container {
-    position: relative;
-    display: inline-block;
-    width: 100%;
-}
-
-/* 文件上传区域样式 */
-.upload-area {
-    border: 2px dashed #ced4da;
-    border-radius: 8px;
-    padding: 30px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background-color: #fafafa;
-    position: relative;
-    z-index: 1;
-}
-
-.upload-area:hover {
-    border-color: #007bff;
-    background-color: #f0f7ff;
-}
-
-.upload-area.dragover {
-    border-color: #28a745;
-    background-color: #f0fff0;
-}
-
-.upload-area.has-files {
-    border-color: #28a745;
-    background-color: #f8fff8;
-}
-
-/* 文件输入覆盖层 - 使用定位替代display:none以确保兼容性 */
-.file-input-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 2;
-    font-size: 0;
-    line-height: 0;
-}
-
-.file-input-overlay:focus {
-    outline: none;
-}
-
-.upload-icon {
-    margin-bottom: 15px;
-}
-
-.upload-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: #495057;
-    margin-bottom: 5px;
-}
-
-.upload-hint {
-    font-size: 12px;
-    color: #6c757d;
-}
-
-/* 已上传文件列表 */
-.uploaded-file-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 15px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    margin-bottom: 8px;
-    transition: all 0.2s ease;
-}
-
-.uploaded-file-item:hover {
-    background-color: #e9ecef;
-}
-
-.uploaded-file-item.success {
-    border-color: #28a745;
-    background-color: #d4edda;
-}
-
-.uploaded-file-item.error {
-    border-color: #dc3545;
-    background-color: #f8d7da;
-}
-
-.file-info {
-    display: flex;
-    align-items: center;
-    flex: 1;
-}
-
-.file-icon {
-    margin-right: 12px;
-    font-size: 22px;
-    flex-shrink: 0;
-}
-
-.file-details {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-}
-
-.file-name {
-    font-size: 14px;
-    font-weight: 500;
-    color: #495057;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.file-meta {
-    font-size: 11px;
-    color: #6c757d;
-    margin-top: 2px;
-}
-
-.file-status {
-    display: flex;
-    align-items: center;
-    margin-left: 15px;
-    font-size: 12px;
-    flex-shrink: 0;
-}
-
-.status-icon {
-    margin-right: 4px;
-}
-
-.file-actions {
-    display: flex;
-    align-items: center;
-    margin-left: 15px;
-    gap: 8px;
-}
-
-.retry-btn {
-    background: none;
-    border: none;
-    color: #007bff;
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 3px;
-    transition: all 0.2s;
-    font-size: 14px;
-}
-
-.retry-btn:hover {
-    background-color: #e7f3ff;
-}
-
-.remove-file-btn {
-    background: none;
-    border: none;
-    color: #dc3545;
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 3px;
-    transition: all 0.2s;
-    font-size: 14px;
-}
-
-.remove-file-btn:hover {
-    background-color: #f8d7da;
-}
-
-.file-status.success {
-    color: #28a745;
-}
-
-.file-status.error {
-    color: #dc3545;
-}
-
-.remove-file-btn {
-    background: none;
-    border: none;
-    color: #dc3545;
-    cursor: pointer;
-    padding: 5px 10px;
-    border-radius: 3px;
-    transition: background-color 0.2s;
-}
-
-.remove-file-btn:hover {
-    background-color: #f8d7da;
-}
-
-/* 进度条样式 */
-.progress {
-    height: 8px;
-    border-radius: 4px;
-    background-color: #e9ecef;
-}
-
-.progress-bar {
-    height: 100%;
-    background-color: #007bff;
-    transition: width 0.3s ease;
-}
-
-.progress-text {
-    font-size: 12px;
-    color: #6c757d;
-    margin-bottom: 0;
-}
-
-/* 动画效果 */
-@keyframes successPulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.02);
-        box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-@keyframes slideOut {
-    0% {
-        opacity: 1;
-        transform: translateX(0);
-        max-height: 60px;
-    }
-    100% {
-        opacity: 0;
-        transform: translateX(100%);
-        max-height: 0;
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* 消息提示样式 */
-.toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    padding: 15px 20px;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 14px;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.toast-icon {
-    margin-right: 10px;
-    font-size: 16px;
-}
-
-.toast-message {
-    flex: 1;
-}
-
-.toast.show {
-    opacity: 1;
-    transform: translateX(0);
-}
-
-.toast.success {
-    background-color: #28a745;
-}
-
-.toast.error {
-    background-color: #dc3545;
-}
-
-.toast.warning {
-    background-color: #ffc107;
-    color: #333;
-}
-
-.bootstrap-select .dropdown-menu li a {
-    position: relative;
-    padding-left: 40px !important;
-}
-
-.bootstrap-select .dropdown-menu li a:before {
-    content: '';
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    border: 1px solid #aaa;
-    background: white;
-}
-
-.bootstrap-select .dropdown-menu li.selected a:before {
-    content: '✓';
-    text-align: center;
-    line-height: 14px;
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-}
-
-.bootstrap-select .dropdown-toggle {
-    background-color: white;
-    border: 1px solid #ced4da;
-}
-
-.bootstrap-select .dropdown-toggle:focus {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-.filter-option-inner-inner {
-    color: #495057;
-}
-
-/* 搜索框样式 */
-.bs-searchbox .form-control {
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-}
-
-/* 全选/取消全选按钮样式 */
-.bs-actionsbox {
-    padding: 8px;
-}
-
-.bs-actionsbox .btn-group button {
-    width: 50%;
-}
-
-/* 自定义 tooltip 样式 */
-.tooltip-inner {
-    max-width: 300px;
-    padding: 10px;
-    color: #fff;
-    text-align: left;
-    background-color: #333;
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-/* 自定义 tooltip 箭头颜色 */
-.tooltip.bs-tooltip-right .arrow::before {
-    border-right-color: #333;
-}
-</style>
-
-{% block extra_js %}
-<!-- 确保这段代码在jQuery加载完成后执行 -->
-<script type="text/javascript">
-    // 等待文档和所有资源加载完成
-    window.addEventListener('load', function() {
-        // 初始化所有的tooltip
-        if (typeof $ !== 'undefined') {
-            $('[data-toggle="tooltip"]').tooltip();
-            
-            // 初始化selectpicker
-            initializeSelectPickers();
-        } else {
-            console.error('jQuery is not loaded');
-        }
-    });
-
-    function initializeSelectPickers() {
-        $('.selectpicker').selectpicker({
-            style: '',
-            styleBase: 'form-control',
-            tickIcon: '',
-            showTick: false,
-            actionsBox: true,
-            deselectAllText: '取消全选',
-            selectAllText: '全选',
-            selectedTextFormat: 'count > 2',
-            countSelectedText: '已选择 {0} 项',
-            noneSelectedText: '请选择'
-        });
-
-        // 自定义下拉选项的渲染
-        $('.selectpicker').on('loaded.bs.select', function () {
-            var $select = $(this);
-            $select.next().find('.dropdown-menu li a').each(function() {
-                var $a = $(this);
-                var isSelected = $a.parent().hasClass('selected');
-                if (isSelected) {
-                    $a.addClass('selected');
-                }
-            });
-        });
-
-        // 处理选择变化
-        $('.selectpicker').on('changed.bs.select', function (e, clickedIndex, isSelected) {
-            var $select = $(this);
-            var $option = $select.next().find('.dropdown-menu li').eq(clickedIndex).find('a');
-            if (isSelected) {
-                $option.addClass('selected');
-            } else {
-                $option.removeClass('selected');
-            }
-        });
-    }
-</script>
 {% endblock %}
 
-<!-- 进度展示组件脚本 -->
+{% block extra_js %}
+<script>
+window.addEventListener('load', function() {
+    if (typeof $ !== 'undefined') {
+        $('[data-toggle="tooltip"]').tooltip();
+        initializeSelectPickers();
+    }
+});
+
+function initializeSelectPickers() {
+    $('.selectpicker').selectpicker({
+        style: '',
+        styleBase: 'form-control',
+        tickIcon: '',
+        showTick: false,
+        actionsBox: true,
+        deselectAllText: '取消全选',
+        selectAllText: '全选',
+        selectedTextFormat: 'count > 2',
+        countSelectedText: '已选择 {0} 项',
+        noneSelectedText: '请选择'
+    });
+}
+</script>
 <script src="{% static 'progress.js' %}"></script>
-<!-- 在这里添加 generate.js 引用 -->
 <script src="{% static 'generate.js' %}"></script>
-{% endblock %} 
+{% endblock %}

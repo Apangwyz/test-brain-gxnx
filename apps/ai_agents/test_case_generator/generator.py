@@ -10,7 +10,7 @@ import json
 class TestCaseGeneratorAgent:
     """测试用例生成Agent"""
     
-    def __init__(self, llm_service: BaseLLMService, knowledge_service: KnowledgeService, case_design_methods: List[str], case_categories: List[str], case_count: int = 10):
+    def __init__(self, llm_service: BaseLLMService, knowledge_service: KnowledgeService, case_design_methods: List[str], case_categories: List[str], case_count: int = 10, generation_strategy: Optional[Dict] = None):
         self.llm_service = llm_service
         self.case_design_methods = case_design_methods
         self.case_categories = case_categories
@@ -18,6 +18,7 @@ class TestCaseGeneratorAgent:
         self.knowledge_service = knowledge_service
         self.prompt = TestCaseGeneratorPrompt()
         self.logger = get_logger(self.__class__.__name__)  # 添加logger
+        self.generation_strategy = generation_strategy or {}
     
 
     async def async_generate(self, input_text: str, input_type: str = "requirement") -> List[Dict[str, Any]]:
@@ -29,6 +30,15 @@ class TestCaseGeneratorAgent:
         # 获取知识上下文
         knowledge_context = self._get_knowledge_context(input_text)
         self.logger.info(f"获取到知识库上下文: \n{'='*50}\n{knowledge_context}\n{'='*50}")
+        
+        # 应用生成策略覆盖
+        if self.generation_strategy:
+            strategy_case_count = self.generation_strategy.get("case_count")
+            if strategy_case_count:
+                self.case_count = strategy_case_count
+            strategy_suggestions = self.generation_strategy.get("quality_suggestions", [])
+            if strategy_suggestions:
+                input_text += "\n\n[分析策略提示]\n" + "\n".join(f"- {s}" for s in strategy_suggestions)
         
         # 处理设计方法和测试类型
         case_design_methods = ",".join(self.case_design_methods) if self.case_design_methods else ""
@@ -80,6 +90,15 @@ class TestCaseGeneratorAgent:
         # 获取知识上下文
         knowledge_context = self._get_knowledge_context(input_text)
         self.logger.info(f"获取到知识库上下文: \n{'='*50}\n{knowledge_context}\n{'='*50}")
+        
+        # 应用生成策略覆盖
+        if self.generation_strategy:
+            strategy_case_count = self.generation_strategy.get("case_count")
+            if strategy_case_count:
+                self.case_count = strategy_case_count
+            strategy_suggestions = self.generation_strategy.get("quality_suggestions", [])
+            if strategy_suggestions:
+                input_text += "\n\n[分析策略提示]\n" + "\n".join(f"- {s}" for s in strategy_suggestions)
         
         # 处理设计方法和测试类型
         case_design_methods = ",".join(self.case_design_methods) if self.case_design_methods else ""

@@ -67,8 +67,10 @@ def set_progress(task_id: str, data: dict) -> None:
             if hasattr(current, key):
                 setattr(current, key, value)
         
-        # 自动更新任务状态
-        if current.percentage is not None:
+        # 自动更新任务状态（不覆盖已明确的终止态）
+        if current.percentage is not None and current.status not in (
+            TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED
+        ):
             if current.percentage >= 100:
                 current.status = TaskStatus.COMPLETED
             elif current.percentage > 0:

@@ -198,8 +198,9 @@ llm_service = None
 def get_llm_service():
     global llm_service
     if llm_service is None:
-        llm_service = LLMServiceFactory.create(
-            provider=DEFAULT_PROVIDER,
+        llm_service = LLMServiceFactory.create_with_fallback(
+            agent_name="test_case_reviewer",
+            preferred_provider=DEFAULT_PROVIDER,
         )
     return llm_service
 
@@ -328,14 +329,20 @@ def get_test_case(request, test_case_id):
     try:
         test_case = TestCase.objects.get(id=test_case_id)
         return JsonResponse({
-            'id': test_case.id,
-            'description': test_case.description,
-            'test_steps': test_case.test_steps,
-            'expected_results': test_case.expected_results,
-            'status': test_case.status
+            'success': True,
+            'test_case': {
+                'id': test_case.id,
+                'description': test_case.description,
+                'test_steps': test_case.test_steps,
+                'expected_results': test_case.expected_results,
+                'status': test_case.status,
+                'bu': test_case.bu if hasattr(test_case, 'bu') else '',
+                'feature': test_case.feature if hasattr(test_case, 'feature') else '',
+                'priority': test_case.priority if hasattr(test_case, 'priority') else '',
+            }
         })
     except TestCase.DoesNotExist:
-        return JsonResponse({'error': '测试用例不存在'}, status=404)
+        return JsonResponse({'success': False, 'message': '测试用例不存在'}, status=404)
 
 def get_test_cases(request, test_case_ids: str):
     """从mysql查询、获取多个测试用例"""
