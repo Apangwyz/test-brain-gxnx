@@ -78,7 +78,8 @@ def submit_generation_task(
     case_design_methods: list,
     case_categories: list,
     case_count: int,
-    generator_func: Callable
+    generator_func: Callable,
+    system_id: int = None
 ):
     """
     提交生成任务到线程池
@@ -103,7 +104,8 @@ def submit_generation_task(
                 llm_provider=llm_provider,
                 case_design_methods=case_design_methods,
                 case_categories=case_categories,
-                case_count=case_count
+                case_count=case_count,
+                system_id=system_id
             )
             logger.info(f"任务 {task_id} 执行完成")
         except Exception as e:

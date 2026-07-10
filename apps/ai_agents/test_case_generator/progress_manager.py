@@ -114,9 +114,10 @@ class StageProgressManager:
             self.steps[self.current_stage].status = "error"
         self._sync_to_registry()
 
-    def set_completed(self, result):
+    def set_completed(self, result, system_id=None):
         self.status = "completed"
         self.result = result
+        self.system_id = system_id
         if self.current_stage:
             self.steps[self.current_stage].status = "completed"
         self.steps[GenerationStage.COMPLETED].status = "completed"
@@ -151,6 +152,7 @@ class StageProgressManager:
                 for step in self.steps.values()
             ],
             "result": self.result,
+            "system_id": getattr(self, 'system_id', None),
         }
 
     def to_json(self):

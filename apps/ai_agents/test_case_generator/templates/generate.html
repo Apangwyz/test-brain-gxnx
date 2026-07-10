@@ -54,6 +54,16 @@
     border: 1px dashed var(--border-color);
     border-radius: var(--radius-sm);
 }
+    .issue-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+    .issue-tag.high { background: #fce4ec; color: #c62828; }
+    .issue-tag.medium { background: #fff3e0; color: #e65100; }
+    .issue-tag.low { background: #e8f5e9; color: #2e7d32; }
 </style>
 {% endblock %}
 
@@ -175,7 +185,7 @@
                             <small class="text-muted">提交后将自动检索知识库中的相关文档，增强生成准确性</small>
                         </div>
                         <div style="margin-top: 8px;">
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="browseKnowledgeBtn">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="browseKnowledgeBtn" onclick="openKnowledgeBrowser();">
                                 📚 浏览知识库
                             </button>
                         </div>
@@ -239,5 +249,5 @@ function initializeSelectPickers() {
 }
 </script>
 <script src="{% static 'progress.js' %}"></script>
-<script src="{% static 'generate.js' %}"></script>
+<script src="{% static 'generate.js' %}?v=8"></script>
 {% endblock %}

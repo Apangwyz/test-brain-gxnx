@@ -137,6 +137,103 @@
     color: var(--success);
     margin-left: 16px;
 }
+
+/* SRS 样式 */
+.srs-section {
+    margin-top: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+.srs-section-header {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.srs-section-header:hover {
+    background: var(--bg-tertiary);
+}
+.srs-section-body {
+    padding: 16px;
+    display: none;
+}
+.srs-section-body.open {
+    display: block;
+}
+.srs-section-body textarea {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+}
+.srs-section-body textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+}
+.srs-section-actions {
+    margin-top: 8px;
+    text-align: right;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.srs-generating-overlay {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+.srs-empty-state {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-secondary);
+}
+
+
+/* SRS 预览样式 */
+.srs-preview-markdown {
+    padding: 16px;
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+.srs-preview-markdown h1 { font-size: 1.6em; border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin: 24px 0 16px; }
+.srs-preview-markdown h2 { font-size: 1.35em; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin: 20px 0 12px; }
+.srs-preview-markdown h3 { font-size: 1.15em; margin: 16px 0 8px; }
+.srs-preview-markdown h4 { font-size: 1.05em; margin: 12px 0 6px; }
+.srs-preview-markdown p { margin: 8px 0; }
+.srs-preview-markdown ul, .srs-preview-markdown ol { margin: 6px 0; padding-left: 24px; }
+.srs-preview-markdown li { margin: 3px 0; }
+.srs-preview-markdown strong { font-weight: 600; }
+.srs-preview-markdown code {
+    background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;
+    font-size: 0.9em; font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.srs-preview-markdown pre {
+    background: var(--bg-tertiary); padding: 12px 16px; border-radius: 6px;
+    overflow-x: auto; border: 1px solid var(--border-color);
+}
+.srs-preview-markdown pre code { background: none; padding: 0; }
+.srs-preview-markdown blockquote {
+    border-left: 4px solid var(--primary); padding: 8px 16px;
+    margin: 12px 0; background: var(--bg-tertiary); border-radius: 0 4px 4px 0;
+}
+.srs-preview-markdown table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+}
+.srs-preview-markdown th, .srs-preview-markdown td {
+    border: 1px solid var(--border-color); padding: 8px 12px; text-align: left;
+}
+.srs-preview-markdown th { background: var(--bg-tertiary); font-weight: 600; }
+.srs-preview-markdown hr { border: none; border-top: 1px solid var(--border-color); margin: 24px 0; }
+
 </style>
 <link rel="stylesheet" href="{% static 'analysis_progress.css' %}">
 
@@ -152,6 +249,13 @@
 <!-- 上传区 -->
 <div class="card">
     <div class="card-body">
+        <div class="form-group">
+            <label for="system-select">选择所属系统 <span class="required-mark" style="color: red;">*</span></label>
+            <select class="form-control" id="system-select" style="min-height: 40px;">
+                <option value="">-- 请选择系统 --</option>
+            </select>
+            <small class="form-text text-muted">选择需求文档所属的系统，分析结果将与系统绑定</small>
+        </div>
         <div class="upload-zone" id="uploadZone">
             <div class="upload-icon">
                 <i class="fas fa-cloud-upload-alt"></i>
@@ -220,6 +324,13 @@
         <div id="testabilityContent">分析中...</div>
     </div>
 
+    <!-- 导出分析报告按钮 -->
+    <div class="action-bar" id="exportReportActionBar" style="display: none;">
+        <button class="btn btn-outline-secondary btn-lg" id="exportReportBtn">
+            <i class="fas fa-download"></i> 导出分析报告
+        </button>
+    </div>
+
     <!-- 采纳/拒绝栏 -->
     <div class="adoption-bar" id="adoptionBar" style="display: none;">
         <div>
@@ -250,16 +361,98 @@
         </div>
     </div>
 
+    <!-- 已采纳的 SRS 列表 -->
+    <div class="adopted-docs-panel" id="adoptedSrsPanel" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h5 style="margin:0;">📋 已采纳的软件需求规格说明书（SRS）</h5>
+            </div>
+            <div class="card-body" id="adoptedSrsList">
+                <p style="color: var(--text-secondary);">加载中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 已拒绝的需求文档列表 -->
+    <div class="adopted-docs-panel" id="rejectedDocsPanel" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h5 style="margin:0;">📋 已拒绝的需求文档</h5>
+            </div>
+            <div class="card-body" id="rejectedDocsList">
+                <p style="color: var(--text-secondary);">加载中...</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- SRS 生成区 -->
+    <div class="card" id="srsCard" style="display: none; margin-top: 24px;">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <h5 style="margin:0;">📄 软件需求规格说明书（SRS）</h5>
+            <div id="srsHeaderActions">
+                <button class="btn btn-primary" id="generateSrsBtn" onclick="generateSRS()">
+                    <i class="fas fa-magic"></i> 生成 SRS
+                </button>
+                <button class="btn btn-outline-secondary" id="refreshSrsBtn" style="display:none;" onclick="generateSRS(true)">
+                    <i class="fas fa-sync"></i> 重新生成
+                </button>
+                <button class="btn btn-outline-info" id="toggleViewBtn" style="display:none;" onclick="toggleSrsView()">
+                    <i class="fas fa-eye"></i> <span id="toggleViewLabel">预览</span>
+                </button>
+                <button class="btn btn-outline-success" id="exportSrsBtn" style="display:none;" onclick="exportSRS()">
+                    <i class="fas fa-download"></i> 导出
+                </button>
+            </div>
+        </div>
+        <div class="card-body" id="srsBody">
+            <div class="srs-empty-state" id="srsEmptyState">
+                <i class="fas fa-file-alt" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+                <p>分析完成后，点击「生成 SRS」将业务需求文档（BRD）转换为<br>符合 GB/T 9385 标准的软件需求规格说明书</p>
+            </div>
+            <div class="srs-generating-overlay" id="srsGeneratingOverlay" style="display:none;">
+                <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="sr-only">正在生成...</span>
+                </div>
+                <p style="margin-top: 16px; font-size: 16px;">正在生成 SRS，请稍候...</p>
+            </div>
+
+            <!-- 编辑模式 -->
+            <div id="srsContentArea" style="display:none;"></div>
+
+            <!-- 预览模式 -->
+            <div id="srsPreviewArea" style="display:none;">
+                <div class="srs-preview-markdown" id="srsPreviewContent"></div>
+            </div>
+
+            <!-- SRS 采纳/拒绝栏 -->
+            <div class="adoption-bar" id="srsAdoptionBar" style="display: none; margin-top: 20px;">
+                <div>
+                    <span class="status-badge pending" id="srsAdoptionStatusBadge">待审核</span>
+                </div>
+                <div id="srsAdoptionActions">
+                    <button class="btn btn-success" id="srsAdoptBtn" onclick="adoptSRS()">
+                        <i class="fas fa-check-circle"></i> 采纳 SRS
+                    </button>
+                    <button class="btn btn-outline-danger" id="srsRejectBtn" onclick="rejectSRS()">
+                        <i class="fas fa-times-circle"></i> 拒绝 SRS
+                    </button>
+                </div>
+                <div id="srsAdoptionResult" style="display: none;">
+                    <p style="font-size: 16px; font-weight: 500;" id="srsAdoptionResultText"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- 操作栏 -->
-    <div class="action-bar">
-        <button class="btn btn-outline-secondary btn-lg" id="exportReportBtn" style="display: none;">
-            <i class="fas fa-download"></i> 导出分析报告
-        </button>
+    <div class="action-bar" style="display:none;">
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'requirement_analysis.js' %}?v=2"></script>
+<script src="{% static 'requirement_analysis.js' %}?v=7"></script>
 <script src="{% static 'analysis_progress.js' %}?v=2"></script>
 {% endblock %}

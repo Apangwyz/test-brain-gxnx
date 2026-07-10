@@ -54,7 +54,8 @@ class AnalysisOrchestrator:
         return cached
 
     def analyze(self, document_name: str, markdown_content: str,
-                progress_manager: Optional[TaskProgressManager] = None) -> RequirementAnalysis:
+                progress_manager: Optional[TaskProgressManager] = None,
+                system_id: int = None) -> RequirementAnalysis:
         """执行完整的分析管道"""
 
         document_hash = self.compute_document_hash(markdown_content)
@@ -62,15 +63,27 @@ class AnalysisOrchestrator:
         # 缓存命中检查
         cached = self.find_cached_analysis(document_hash)
         if cached:
-            self.logger.info(f"缓存命中: {document_name} (hash={document_hash[:12]}...)")
-            if progress_manager:
-                progress_manager.complete_stage("scoring")
-                progress_manager.complete_stage("deep_analysis")
-                progress_manager.complete_stage("summarize")
-                progress_manager.set_completed(
-                    result={"id": cached.id, "cached": True},
-                    message="使用缓存的分析结果"
-                )
+            # 检查缓存记录是否为已采纳状态
+            if cached.adoption_status == 'adopted':
+                self.logger.info(f"缓存命中（已采纳）: {document_name} (hash={document_hash[:12]}...)")
+                if progress_manager:
+                    progress_manager.complete_stage("scoring")
+                    progress_manager.complete_stage("deep_analysis")
+                    progress_manager.complete_stage("summarize")
+                    progress_manager.set_completed(
+                        result={"id": cached.id, "cached": True, "already_adopted": True},
+                        message="该文档已被采纳，无需重复分析"
+                    )
+            else:
+                self.logger.info(f"缓存命中: {document_name} (hash={document_hash[:12]}...)")
+                if progress_manager:
+                    progress_manager.complete_stage("scoring")
+                    progress_manager.complete_stage("deep_analysis")
+                    progress_manager.complete_stage("summarize")
+                    progress_manager.set_completed(
+                        result={"id": cached.id, "cached": True},
+                        message="使用缓存的分析结果"
+                    )
             return cached
 
         # Phase 1: 概要分析
@@ -146,13 +159,14 @@ class AnalysisOrchestrator:
             consistency=phase2_results.get("consistency", {}),
             testability=phase2_results.get("testability", {}),
             generation_strategy=strategy,
+            system_id=system_id,
             total_sections=markdown_content.count("\n## "),
             word_count=len(markdown_content),
         )
 
         if progress_manager:
             progress_manager.complete_stage("summarize")
-            progress_manager.set_completed()
+            progress_manager.set_completed(result={"id": analysis.id})
 
         self.logger.info(f"分析完成: {document_name}, 评分={quality_result.get('overall_score', 'N/A')}")
         return analysis

@@ -3,6 +3,25 @@ let currentFilePath = null;
 let currentFileName = null;
 let currentFileType = null;
 
+function loadSystems() {
+    fetch('/api/systems/?status=active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var select = document.getElementById('system-select');
+        if (!select) return;
+        if (data.success && data.systems) {
+            select.innerHTML = '<option value="">-- 请选择系统 --</option>';
+            data.systems.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name + ' (' + s.code + ')';
+                select.appendChild(opt);
+            });
+        }
+    })
+    .catch(function(err) { console.error('[req_analysis] 加载系统列表失败:', err); });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     try {
         const uploadZone = document.getElementById('uploadZone');
@@ -10,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!uploadZone) { console.error('[req_analysis] uploadZone not found'); return; }
         if (!fileInput) { console.error('[req_analysis] fileInput not found'); return; }
+
+        // 加载系统列表
+        loadSystems();
 
         uploadZone.addEventListener('click', function() {
             fileInput.click();
@@ -82,6 +104,14 @@ function handleFileSelect(file) {
 function uploadAndAnalyze() {
     const fileInput = document.getElementById('fileInput');
     if (!fileInput.files.length) return;
+    
+    // 验证系统选择
+    const systemId = document.getElementById('system-select')?.value;
+    if (!systemId) {
+        alert('请先选择所属系统');
+        document.getElementById('system-select')?.focus();
+        return;
+    }
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
@@ -93,12 +123,36 @@ function uploadAndAnalyze() {
 
     // 设置完成回调
     progressManager.onComplete(function(result) {
-        pollLatestAnalysis().then(function(resultData) {
-            if (resultData && resultData.success) {
-                renderReport(resultData.data);
+        // 优先使用进度结果中的 analysisId 精准获取，避免 pollLatestAnalysis 取错记录
+        var analysisId = result ? result.id : null;
+        if (analysisId) {
+            fetch('/requirement_analysis/api/result/' + analysisId + '/')
+            .then(function(r) { return r.json(); })
+            .then(function(resultData) {
+                if (resultData.success) {
+                    renderReport(resultData.data);
+                }
                 progressManager.hide(false);
-            }
-        });
+                loadAdoptedDocs();
+                if (result && result.already_adopted) {
+                    setTimeout(function() {
+                        alert('提示：该文档已被采纳，无需重复操作');
+                    }, 500);
+                }
+            })
+            .catch(function() {
+                progressManager.hide(false);
+                loadAdoptedDocs();
+            });
+        } else {
+            pollLatestAnalysis().then(function(resultData) {
+                if (resultData && resultData.success) {
+                    renderReport(resultData.data);
+                }
+                progressManager.hide(false);
+                loadAdoptedDocs();
+            });
+        }
     });
 
     // 设置错误回调
@@ -126,7 +180,8 @@ function uploadAndAnalyze() {
             body: JSON.stringify({
                 file_path: currentFilePath,
                 file_name: currentFileName,
-                file_type: currentFileType
+                file_type: currentFileType,
+                system_id: parseInt(document.getElementById('system-select')?.value) || null
             })
         });
     })
@@ -225,15 +280,44 @@ function renderReport(data) {
 
     // 显示采纳栏和导出按钮
     document.getElementById('adoptionBar').style.display = 'block';
-    document.getElementById('exportReportBtn').style.display = 'inline-block';
-    // 重置采纳状态显示
-    document.getElementById('adoptionActions').style.display = 'block';
-    document.getElementById('adoptionResult').style.display = 'none';
-    document.getElementById('adoptionStatusBadge').textContent = '待审核';
-    document.getElementById('adoptionStatusBadge').className = 'status-badge pending';
+    document.getElementById('exportReportActionBar').style.display = 'block';
+    // 根据当前采纳状态显示正确UI
+    var adoptStatus = data.adoption_status || 'pending';
+    if (adoptStatus === 'adopted') {
+        document.getElementById('adoptionActions').style.display = 'none';
+        document.getElementById('adoptionResult').style.display = 'block';
+        document.getElementById('adoptionResultText').innerHTML = '✅ 该需求文档已于' + (data.adopted_at ? new Date(data.adopted_at).toLocaleString() : '之前') + '被采纳';
+        document.getElementById('adoptionStatusBadge').textContent = '已采纳';
+        document.getElementById('adoptionStatusBadge').className = 'status-badge adopted';
+    } else if (adoptStatus === 'rejected') {
+        document.getElementById('adoptionActions').style.display = 'none';
+        document.getElementById('adoptionResult').style.display = 'block';
+        document.getElementById('adoptionResultText').innerHTML = '❌ 该需求文档已被拒绝';
+        document.getElementById('adoptionStatusBadge').textContent = '已拒绝';
+        document.getElementById('adoptionStatusBadge').className = 'status-badge rejected';
+    } else {
+        document.getElementById('adoptionActions').style.display = 'block';
+        document.getElementById('adoptionResult').style.display = 'none';
+        document.getElementById('adoptionStatusBadge').textContent = '待审核';
+        document.getElementById('adoptionStatusBadge').className = 'status-badge pending';
+    }
 
     // 滚动到报告区域
     document.getElementById('reportContainer').scrollIntoView({ behavior: 'smooth' });
+
+    // 显示 SRS 生成卡片
+    showSrsCard();
+
+    // 加载分析报告预览（安全调用，防止未定义错误）
+    try {
+        if (typeof loadReportPreview === 'function') {
+            loadReportPreview(data);
+        } else {
+            console.warn('[renderReport] loadReportPreview is not defined, skipping report preview');
+        }
+    } catch(e) {
+        console.warn('[renderReport] loadReportPreview failed:', e);
+    }
 }
 
 // 优先级权重映射（用于排序）
@@ -496,6 +580,8 @@ document.getElementById('adoptBtn')?.addEventListener('click', function() {
             loadAdoptedDocs();
         } else {
             alert('采纳失败: ' + (data.error || '未知错误'));
+            // 刷新已采纳列表（报错可能是文档已采纳但列表未更新）
+            loadAdoptedDocs();
         }
     })
     .catch(err => alert('请求失败: ' + err.message));
@@ -525,13 +611,130 @@ document.getElementById('rejectBtn')?.addEventListener('click', function() {
     .catch(err => alert('请求失败: ' + err.message));
 });
 
-function loadAdoptedDocs() {
-    const panel = document.getElementById('adoptedDocsPanel');
-    const list = document.getElementById('adoptedDocsList');
+
+function loadAdoptedSrs() {
+    const panel = document.getElementById('adoptedSrsPanel');
+    const list = document.getElementById('adoptedSrsList');
     if (!panel || !list) return;
 
-    fetch('/requirement_analysis/api/adopted-docs/')
-    .then(r => { if (!r.ok) { return r.text().then(t => { throw new Error("请求失败: " + (t || r.statusText)); }); } return r.json(); })
+    fetch('/requirement_analysis/api/adopted-srs/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success && data.data && data.data.length > 0) {
+            console.log('[loadAdoptedDocs] showing panel, rendering', data.data.length, 'docs');
+            panel.style.display = 'block';
+            list.innerHTML = '';
+            data.data.forEach(function(doc) {
+                const score = doc.quality_score || 'N/A';
+                list.innerHTML += `
+                    <div class="adopted-doc-item" style="cursor: pointer;">
+                        <div class="doc-info">
+                            <div class="doc-name">📄 ${doc.document_name}</div>
+                            <div class="doc-meta">
+                                <span class="issue-tag low" style="margin-right: 6px;">SRS 已采纳</span>
+                                需求评分: ${score} | ${doc.word_count || 0} 字
+                                ${doc.system_name ? '<br>所属系统: ' + doc.system_name : ''}
+                                ${doc.srs_adopted_at ? '<br>SRS 采纳时间: ' + new Date(doc.srs_adopted_at).toLocaleString() : ''}
+                            </div>
+                        </div>
+                        <div class="doc-score">
+                            <i class="fas fa-check-circle" style="color: #2e7d32;"></i>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    })
+    .catch(function(err) {
+        console.log('加载已采纳 SRS 失败:', err);
+    });
+}
+
+
+function loadAdoptedDocs() {
+    console.log("[loadAdoptedDocs] called at " + new Date().toISOString());
+    const adoptedPanel = document.getElementById('adoptedDocsPanel');
+    const adoptedList = document.getElementById('adoptedDocsList');
+    const rejectedPanel = document.getElementById('rejectedDocsPanel');
+    const rejectedList = document.getElementById('rejectedDocsList');
+
+    if (!adoptedPanel || !adoptedList) return;
+
+    fetch('/requirement_analysis/api/my-docs/', { credentials: 'include' })
+    .then(r => { if (!r.ok) { throw new Error("请求失败"); } return r.json(); })
+    .then(data => {
+        if (!data.success || !data.data) {
+            return fallbackLoadAdoptedDocs(adoptedPanel, adoptedList);
+        }
+
+        var adoptedDocs = data.data.filter(function(d) { return d.adoption_status === 'adopted'; });
+        var rejectedDocs = data.data.filter(function(d) { return d.adoption_status === 'rejected'; });
+
+        if (adoptedDocs.length > 0) {
+            adoptedPanel.style.display = 'block';
+            adoptedList.innerHTML = '';
+            adoptedDocs.forEach(function(doc) {
+                renderDocItem(adoptedList, doc, 'adopted');
+            });
+        } else {
+            adoptedPanel.style.display = 'none';
+        }
+
+        if (rejectedDocs.length > 0) {
+            if (rejectedPanel && rejectedList) {
+                rejectedPanel.style.display = 'block';
+                rejectedList.innerHTML = '';
+                rejectedDocs.forEach(function(doc) {
+                    renderDocItem(rejectedList, doc, 'rejected');
+                });
+            }
+        } else {
+            if (rejectedPanel) rejectedPanel.style.display = 'none';
+        }
+        
+        // 同时加载已采纳的 SRS
+        loadAdoptedSrs();
+    })
+    .catch(function(err) {
+        console.error('[loadAdoptedDocs] failed, fallback:', err);
+        fallbackLoadAdoptedDocs(adoptedPanel, adoptedList);
+    });
+}
+
+function renderDocItem(container, doc, status) {
+    const score = doc.quality_score || 'N/A';
+    const preview = (doc.content_preview || '').substring(0, 100);
+    var actionButtons = '';
+    if (status === 'adopted') {
+        actionButtons = '<button class="btn btn-sm btn-outline-danger" style="margin-left: 8px; padding: 2px 8px; font-size: 12px;" onclick="deleteAdoptedDoc(' + doc.id + ')" title="删除此文档"><i class="fas fa-trash"></i></button>';
+    } else if (status === 'rejected') {
+        actionButtons = '<button class="btn btn-sm btn-outline-success" style="margin-left: 8px; padding: 2px 8px; font-size: 12px;" onclick="resubmitDocument(' + doc.id + ')" title="重新提交"><i class="fas fa-undo"></i> 重新提交</button>';
+    }
+    container.innerHTML += `
+        <div class="adopted-doc-item">
+            <div class="doc-info">
+                <div class="doc-name">\u{1F4C4} ${doc.document_name}</div>
+                <div class="doc-meta">
+                    评分: ${score} | ${doc.word_count || 0} 字 | ${doc.total_sections || 0} 节
+                    ${preview ? '<br>' + preview + '...' : ''}
+                    <br>
+                    <span class="issue-tag ${doc.has_srs ? (doc.srs_adoption_status === 'adopted' ? 'low' : doc.srs_adoption_status === 'rejected' ? 'high' : 'medium') : 'medium'}">
+                        ${doc.has_srs ? (doc.srs_adoption_status === 'adopted' ? 'SRS \u5DF2\u91C7\u7EB3' : doc.srs_adoption_status === 'rejected' ? 'SRS \u5DF2\u62D2\u7EDD' : 'SRS \u5F85\u5BA1\u6838') : '\u672A\u751F\u6210 SRS'}
+                    </span>
+                </div>
+            </div>
+            <div class="doc-score">
+                ${score}\u5206
+                ${actionButtons}
+            </div>
+        </div>
+    `;
+}
+
+function fallbackLoadAdoptedDocs(panel, list) {
+    if (!panel || !list) return;
+    fetch('/requirement_analysis/api/adopted-docs/', { credentials: 'include' })
+    .then(r => { if (!r.ok) throw new Error('请求失败'); return r.json(); })
     .then(data => {
         if (data.success && data.data && data.data.length > 0) {
             panel.style.display = 'block';
@@ -542,25 +745,38 @@ function loadAdoptedDocs() {
                 list.innerHTML += `
                     <div class="adopted-doc-item">
                         <div class="doc-info">
-                            <div class="doc-name">📄 ${doc.document_name}</div>
+                            <div class="doc-name">\u{1F4C4} ${doc.document_name}</div>
                             <div class="doc-meta">
                                 评分: ${score} | ${doc.word_count || 0} 字 | ${doc.total_sections || 0} 节
                                 ${preview ? '<br>' + preview + '...' : ''}
+                                <br>
+                                <span class="issue-tag ${doc.has_srs ? (doc.srs_adoption_status === 'adopted' ? 'low' : doc.srs_adoption_status === 'rejected' ? 'high' : 'medium') : 'medium'}">
+                                    ${doc.has_srs ? (doc.srs_adoption_status === 'adopted' ? 'SRS 已采纳' : doc.srs_adoption_status === 'rejected' ? 'SRS 已拒绝' : 'SRS 待审核') : '未生成 SRS'}
+                                </span>
                             </div>
                         </div>
-                        <div class="doc-score">${score}分</div>
+                        <div class="doc-score">
+                            ${score}分
+                            <button class="btn btn-sm btn-outline-danger" style="margin-left: 8px; padding: 2px 8px; font-size: 12px;" onclick="deleteAdoptedDoc(${doc.id})" title="删除此文档">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 `;
             });
         }
     })
     .catch(function(err) {
-        console.log('加载已采纳文档失败:', err);
+        console.error('[fallbackLoadAdoptedDocs] failed:', err);
+        if (panel) panel.style.display = 'block';
+        if (list) list.innerHTML = '<p style="color: var(--text-secondary);">⚠️ 加载失败，请刷新页面重试</p>';
     });
 }
 
 // 页面加载时加载已采纳文档列表
+console.log('[DOMContentLoaded] registering adopted docs loader');
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[DOMContentLoaded] event fired, scheduling loadAdoptedDocs');
     setTimeout(loadAdoptedDocs, 500);
 });
 
@@ -583,3 +799,665 @@ function getCookie(name) {
 function getCSRFToken() {
     return getCookie('csrftoken');
 }
+
+
+// ============================================================
+// ============================================================
+
+// ============================================================
+// SRS（软件需求规格说明书）生成、预览、编辑与采纳功能
+// ============================================================
+
+// SRS 章节中文标题映射（含子章节）
+const SRS_SECTION_TITLES = {
+    "introduction": "一、引言",
+    "overall_description": "二、总体描述",
+    "functional_requirements": "三、功能需求",
+    "external_interfaces": "四、外部接口需求",
+    "non_functional_requirements": "五、非功能需求",
+    "data_requirements": "六、数据需求",
+    "appendix": "七、附录"
+};
+
+// 子章节中文标题映射
+const SRS_SUB_SECTION_TITLES = {
+    "purpose": "1.1 目的",
+    "scope": "1.2 范围",
+    "definitions": "1.3 定义与缩略语",
+    "references": "1.4 参考文献",
+    "product_overview": "2.1 产品概述",
+    "product_functions": "2.2 功能概要",
+    "user_characteristics": "2.3 用户特征",
+    "constraints": "2.4 约束",
+    "assumptions": "2.5 假设和依赖关系",
+    "user_interfaces": "4.1 用户接口",
+    "hardware_interfaces": "4.2 硬件接口",
+    "software_interfaces": "4.3 软件接口",
+    "communication_interfaces": "4.4 通信接口",
+    "performance": "5.1 性能需求",
+    "security": "5.2 安全需求",
+    "usability": "5.3 可用性需求",
+    "reliability": "5.4 可靠性需求",
+    "maintainability": "5.5 可维护性需求",
+    "entities": "6.1 数据实体描述",
+    "dictionary": "6.2 数据字典",
+    "management": "6.3 数据管理要求",
+    "notes": "7.1 补充说明",
+    "pending_items": "7.2 待确认事项"
+};
+
+// 当前视图模式: 'edit' 或 'preview'
+let srsViewMode = 'edit';
+
+function showSrsCard() {
+    var card = document.getElementById('srsCard');
+    if (card) card.style.display = 'block';
+}
+
+// ---------- Markdown 简单渲染 ----------
+function renderMarkdown(text) {
+    if (!text) return '';
+    var html = text
+        // 转义 HTML
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // 代码块 ```...```
+        .replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
+            return '<pre><code>' + code.trim() + '</code></pre>';
+        })
+        // 行内代码 `...`
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // 图片 ![](url)
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%">')
+        // 链接 [text](url)
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        // 加粗 **text**
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        // 斜体 *text*
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        // 分割线 ---
+        .replace(/^---$/gm, '<hr>')
+        // 引用 > text
+        .replace(/^&gt;\s+(.*)$/gm, '<blockquote>$1</blockquote>')
+        // 无序列表 - item
+        .replace(/^[\s]*[-*+]\s+(.*)$/gm, '<li>$1</li>')
+        // 有序列表 1. item
+        .replace(/^[\s]*\d+\.\s+(.*)$/gm, '<li>$1</li>')
+        // 标题 ### text
+        .replace(/^######\s+(.*)$/gm, '<h6>$1</h6>')
+        .replace(/^#####\s+(.*)$/gm, '<h5>$1</h5>')
+        .replace(/^####\s+(.*)$/gm, '<h4>$1</h4>')
+        .replace(/^###\s+(.*)$/gm, '<h3>$1</h3>')
+        .replace(/^##\s+(.*)$/gm, '<h2>$1</h2>')
+        .replace(/^#\s+(.*)$/gm, '<h1>$1</h1>')
+        // 段落（连续文本用 <p> 包裹）
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^\n/, '')
+        .replace(/\n$/, '');
+
+    // 包裹列表
+    html = html.replace(/(<li>[\s\S]*?)(?=<li>|<\/p>|<h|<blockquote|<pre|<hr|$)/g, function(m) {
+        if (m.indexOf('<li>') >= 0) return '<ul>' + m + '</ul>';
+        return m;
+    });
+
+    return '<p>' + html + '</p>';
+}
+
+// ---------- SRS 生成 ----------
+function generateSRS(forceRegenerate) {
+    if (!currentAnalysisId) {
+        alert('请先完成需求分析');
+        return;
+    }
+
+    var btn = document.getElementById('generateSrsBtn');
+    var overlay = document.getElementById('srsGeneratingOverlay');
+    var emptyState = document.getElementById('srsEmptyState');
+    var contentArea = document.getElementById('srsContentArea');
+    var previewArea = document.getElementById('srsPreviewArea');
+    var refreshBtn = document.getElementById('refreshSrsBtn');
+    var exportBtn = document.getElementById('exportSrsBtn');
+    var toggleBtn = document.getElementById('toggleViewBtn');
+    var adoptBar = document.getElementById('srsAdoptionBar');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+    overlay.style.display = 'block';
+    emptyState.style.display = 'none';
+    contentArea.style.display = 'none';
+    previewArea.style.display = 'none';
+    refreshBtn.style.display = 'none';
+    exportBtn.style.display = 'none';
+    toggleBtn.style.display = 'none';
+    if (adoptBar) adoptBar.style.display = 'none';
+
+    fetch('/requirement_analysis/api/' + currentAnalysisId + '/generate-srs/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify(forceRegenerate ? {force: true} : {})
+    })
+    .then(function(r) {
+        if (!r.ok) { return r.text().then(function(t) { throw new Error('请求失败: ' + (t || r.statusText)); }); }
+        return r.json();
+    })
+    .then(function(data) {
+        if (!data.success) { throw new Error(data.error || '生成失败'); }
+
+        if (data.srs_generated) {
+            loadSRS();
+        } else {
+            pollSrsGeneration(data.task_id);
+        }
+    })
+    .catch(function(err) {
+        alert('SRS 生成失败: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic"></i> 生成 SRS';
+        overlay.style.display = 'none';
+        emptyState.style.display = 'block';
+    });
+}
+
+function pollSrsGeneration(taskId) {
+    var overlay = document.getElementById('srsGeneratingOverlay');
+    var btn = document.getElementById('generateSrsBtn');
+
+    var pollCount = 0;
+    var maxPolls = 180;
+
+    function check() {
+        pollCount++;
+        fetch('/api/progress/?task_id=' + encodeURIComponent(taskId))
+        .then(function(r) {
+            if (!r.ok) { throw new Error('进度查询失败: HTTP ' + r.status); }
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data.success || !data.progress) {
+                throw new Error(data.message || '进度数据异常');
+            }
+            var progress = data.progress;
+            var status = progress.status || '';
+
+            if (status === 'completed' || status === 'success') {
+                loadSRS();
+            } else if (status === 'error') {
+                throw new Error(progress.message || '生成过程出错');
+            } else if (pollCount < maxPolls) {
+                setTimeout(check, 1500);
+            } else {
+                throw new Error('生成超时，请稍后重试或检查 LLM 服务状态');
+            }
+        })
+        .catch(function(err) {
+            console.error('SRS 进度轮询失败:', err);
+            overlay.style.display = 'none';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic"></i> 生成 SRS';
+            document.getElementById('srsEmptyState').style.display = 'block';
+            alert('SRS 生成失败: ' + err.message + '\\n请重试或检查服务端日志');
+        });
+    }
+    setTimeout(check, 2000);
+}
+
+// ---------- 加载并渲染 SRS ----------
+function loadSRS() {
+    var overlay = document.getElementById('srsGeneratingOverlay');
+    var emptyState = document.getElementById('srsEmptyState');
+    var contentArea = document.getElementById('srsContentArea');
+    var previewArea = document.getElementById('srsPreviewArea');
+    var btn = document.getElementById('generateSrsBtn');
+    var refreshBtn = document.getElementById('refreshSrsBtn');
+    var exportBtn = document.getElementById('exportSrsBtn');
+    var toggleBtn = document.getElementById('toggleViewBtn');
+    var adoptBar = document.getElementById('srsAdoptionBar');
+
+    fetch('/requirement_analysis/api/' + currentAnalysisId + '/srs/')
+    .then(function(r) {
+        if (!r.ok) { return r.text().then(function(t) { throw new Error('请求失败: ' + (t || r.statusText)); }); }
+        return r.json();
+    })
+    .then(function(data) {
+        if (!data.success || !data.data || !data.data.srs_content) {
+            throw new Error('SRS 内容为空');
+        }
+
+        var srs = data.data.srs_content;
+        overlay.style.display = 'none';
+        emptyState.style.display = 'none';
+        contentArea.style.display = 'block';
+        previewArea.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic"></i> 生成 SRS';
+        refreshBtn.style.display = 'inline-block';
+        exportBtn.style.display = 'inline-block';
+        toggleBtn.style.display = 'inline-block';
+        document.getElementById('toggleViewLabel').textContent = '预览';
+        srsViewMode = 'edit';
+
+        // 渲染编辑模式
+        contentArea.innerHTML = renderSrsEditMode(srs);
+        // 渲染预览模式
+        previewArea.innerHTML = renderSrsPreviewMode(srs);
+
+        // 加载采纳状态
+        loadSrsAdoptionStatus();
+    })
+    .catch(function(err) {
+        overlay.style.display = 'none';
+        emptyState.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic"></i> 生成 SRS';
+        console.error('加载 SRS 失败:', err);
+        alert('加载 SRS 失败: ' + err.message);
+    });
+}
+
+// ---------- 渲染编辑模式 ----------
+function renderSrsEditMode(srs) {
+    var html = '';
+    var sectionKeys = [
+        'introduction', 'overall_description', 'functional_requirements',
+        'external_interfaces', 'non_functional_requirements',
+        'data_requirements', 'appendix'
+    ];
+
+    sectionKeys.forEach(function(key) {
+        var title = SRS_SECTION_TITLES[key] || key;
+        var sectionData = srs[key];
+        if (!sectionData) return;
+
+        html += '<div class="srs-section">';
+        html += '<div class="srs-section-header" onclick="toggleSrsSection(this)">';
+        html += '<span>' + title + '</span>';
+        html += '<i class="fas fa-chevron-down"></i>';
+        html += '</div>';
+        html += '<div class="srs-section-body open">';
+
+        if (key === 'functional_requirements' && Array.isArray(sectionData)) {
+            sectionData.forEach(function(fr, idx) {
+                html += '<div style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 4px;">';
+                html += '<strong>' + (fr.id || 'FR-' + (idx+1)) + ' ' + (fr.name || '') + '</strong>';
+                html += ' <span class="issue-tag ' + (fr.priority === '高' ? 'high' : fr.priority === '中' ? 'medium' : 'low') + '">' + (fr.priority || '中') + '</span>';
+                html += '<br><small>模块: ' + (fr.module || '') + ' | 来源: ' + (fr.source || '') + '</small>';
+                html += '<textarea data-srs-key="' + key + '" data-srs-index="' + idx + '" data-srs-field="description" onchange="markSrsDirty(this)">' + escapeHtml(fr.description || '') + '</textarea>';
+                html += '</div>';
+            });
+        } else if (typeof sectionData === 'object') {
+            Object.keys(sectionData).forEach(function(subKey) {
+                var subVal = sectionData[subKey];
+                var subTitle = SRS_SUB_SECTION_TITLES[subKey] || subKey;
+                if (typeof subVal === 'string') {
+                    html += '<label style="font-weight: 500; margin-top: 8px; display: block;">' + subTitle + '</label>';
+                    html += '<textarea data-srs-key="' + key + '" data-srs-subkey="' + subKey + '" onchange="markSrsDirty(this)">' + escapeHtml(subVal) + '</textarea>';
+                } else if (typeof subVal === 'object') {
+                    // 嵌套对象
+                    html += '<label style="font-weight: 600; margin-top: 12px; display: block;">' + subTitle + '</label>';
+                    Object.keys(subVal).forEach(function(deepKey) {
+                        var deepTitle = SRS_SUB_SECTION_TITLES[deepKey] || deepKey;
+                        if (typeof subVal[deepKey] === 'string') {
+                            html += '<label style="font-weight: 500; margin-top: 6px; display: block;">' + deepTitle + '</label>';
+                            html += '<textarea data-srs-key="' + key + '" data-srs-subkey="' + deepKey + '" onchange="markSrsDirty(this)">' + escapeHtml(subVal[deepKey]) + '</textarea>';
+                        }
+                    });
+                }
+            });
+        } else if (typeof sectionData === 'string') {
+            html += '<textarea data-srs-key="' + key + '" onchange="markSrsDirty(this)">' + escapeHtml(sectionData) + '</textarea>';
+        }
+
+        html += '<div class="srs-section-actions">';
+        html += '<button class="btn btn-sm btn-outline-primary" onclick="saveSingleSection(\''
+            + key
+        + '\')"><i class="fas fa-save"></i> \u4fdd\u5b58</button>';
+        html += '</div>';
+        html += '</div></div>';
+    });
+
+    return html;
+}
+
+// ---------- 渲染预览模式（已渲染 Markdown）----------
+function renderSrsPreviewMode(srs) {
+    var html = '';
+    html += '<div style="max-width: 900px; margin: 0 auto;">';
+    html += '<h1 style="text-align:center; border-bottom: 3px solid var(--primary); padding-bottom: 16px; margin-bottom: 32px;">软件需求规格说明书</h1>';
+    html += '<p style="text-align:center; color: var(--text-secondary); margin-bottom: 32px;">本文件由 TestBrain 系统根据业务需求文档（BRD）自动生成，遵循 GB/T 9385 标准</p>';
+
+    var sectionKeys = [
+        'introduction', 'overall_description', 'functional_requirements',
+        'external_interfaces', 'non_functional_requirements',
+        'data_requirements', 'appendix'
+    ];
+
+    sectionKeys.forEach(function(key) {
+        var title = SRS_SECTION_TITLES[key] || key;
+        var sectionData = srs[key];
+        if (!sectionData) return;
+
+        html += '<h2 style="border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin-top: 32px;">' + title + '</h2>';
+
+        if (key === 'functional_requirements' && Array.isArray(sectionData)) {
+            sectionData.forEach(function(fr, idx) {
+                html += '<div style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: 6px; border-left: 4px solid var(--primary);">';
+                html += '<h3 style="margin: 0 0 8px;">' + (fr.id || 'FR-' + (idx+1)) + ' ' + (fr.name || '') + '</h3>';
+                html += '<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">';
+                html += '模块: ' + (fr.module || '') + ' | 优先级: ' + (fr.priority || '') + ' | 来源: ' + (fr.source || '');
+                html += '</div>';
+                html += '<div class="srs-preview-markdown" style="padding: 0;">';
+                html += renderMarkdown(fr.description || '');
+                html += '</div>';
+                html += '</div>';
+            });
+        } else if (typeof sectionData === 'object') {
+            Object.keys(sectionData).forEach(function(subKey) {
+                var subVal = sectionData[subKey];
+                var subTitle = SRS_SUB_SECTION_TITLES[subKey] || subKey;
+                if (typeof subVal === 'string') {
+                    html += '<h3>' + subTitle + '</h3>';
+                    html += '<div class="srs-preview-markdown" style="padding: 0;">' + renderMarkdown(subVal) + '</div>';
+                } else if (typeof subVal === 'object') {
+                    html += '<h3>' + subTitle + '</h3>';
+                    Object.keys(subVal).forEach(function(deepKey) {
+                        var deepTitle = SRS_SUB_SECTION_TITLES[deepKey] || deepKey;
+                        if (typeof subVal[deepKey] === 'string') {
+                            html += '<h4>' + deepTitle + '</h4>';
+                            html += '<div class="srs-preview-markdown" style="padding: 0;">' + renderMarkdown(subVal[deepKey]) + '</div>';
+                        }
+                    });
+                }
+            });
+        } else if (typeof sectionData === 'string') {
+            html += '<div class="srs-preview-markdown" style="padding: 0;">' + renderMarkdown(sectionData) + '</div>';
+        }
+    });
+
+    html += '<hr style="margin: 40px 0;">';
+    html += '<p style="text-align:center; color: var(--text-secondary);"><em>报告由 TestBrain 系统自动生成</em></p>';
+    html += '</div>';
+
+    return html;
+}
+
+// ---------- 切换预览/编辑 ----------
+function toggleSrsView() {
+    var contentArea = document.getElementById('srsContentArea');
+    var previewArea = document.getElementById('srsPreviewArea');
+    var label = document.getElementById('toggleViewLabel');
+
+    if (srsViewMode === 'edit') {
+        // 切换到预览模式
+        contentArea.style.display = 'none';
+        previewArea.style.display = 'block';
+        label.textContent = '编辑';
+        srsViewMode = 'preview';
+    } else {
+        // 切换到编辑模式
+        contentArea.style.display = 'block';
+        previewArea.style.display = 'none';
+        label.textContent = '预览';
+        srsViewMode = 'edit';
+    }
+}
+
+// ---------- 章节折叠 ----------
+function toggleSrsSection(header) {
+    var body = header.nextElementSibling;
+    if (body) {
+        body.classList.toggle('open');
+        var icon = header.querySelector('i.fa-chevron-down, i.fa-chevron-up');
+        if (icon) {
+            icon.className = body.classList.contains('open') ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+        }
+    }
+}
+
+function markSrsDirty(textarea) {
+    textarea.style.borderColor = '#ff9800';
+}
+
+// ---------- 保存单章节 ----------
+function saveSingleSection(sectionKey) {
+    var textareas = document.querySelectorAll('textarea[data-srs-key="' + sectionKey + '"]');
+    var sectionData = {};
+
+    if (sectionKey === 'functional_requirements') {
+        var frList = [];
+        var items = {};
+        textareas.forEach(function(ta) {
+            var idx = ta.getAttribute('data-srs-index');
+            var field = ta.getAttribute('data-srs-field') || 'description';
+            if (!items[idx]) items[idx] = {};
+            items[idx][field] = ta.value;
+        });
+        Object.keys(items).sort().forEach(function(idx) {
+            frList.push(items[idx]);
+        });
+        sectionData = { "functional_requirements": frList };
+    } else {
+        textareas.forEach(function(ta) {
+            var subKey = ta.getAttribute('data-srs-subkey');
+            if (subKey) {
+                if (!sectionData[sectionKey]) sectionData[sectionKey] = {};
+                sectionData[sectionKey][subKey] = ta.value;
+            } else {
+                sectionData[sectionKey] = ta.value;
+            }
+        });
+    }
+
+    fetch('/requirement_analysis/api/' + currentAnalysisId + '/srs/', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({ srs_content: sectionData })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            textareas.forEach(function(ta) { ta.style.borderColor = ''; });
+            alert('章节「' + (SRS_SECTION_TITLES[sectionKey] || sectionKey) + '」已保存');
+        } else {
+            alert('保存失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(function(err) {
+        alert('保存失败: ' + err.message);
+    });
+}
+
+// ---------- 导出 SRS ----------
+function exportSRS() {
+    if (!currentAnalysisId) {
+        alert('请先生成 SRS');
+        return;
+    }
+    window.location.href = '/requirement_analysis/api/' + currentAnalysisId + '/srs/export/';
+}
+
+// ---------- SRS 采纳/拒绝 ----------
+function loadSrsAdoptionStatus() {
+    if (!currentAnalysisId) return;
+    var adoptBar = document.getElementById('srsAdoptionBar');
+    if (!adoptBar) return;
+
+    fetch('/requirement_analysis/api/result/' + currentAnalysisId + '/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.success) return;
+        var status = data.data.srs_adoption_status || 'pending';
+        var adoptAt = data.data.srs_adopted_at;
+        updateSrsAdoptionUI(status, adoptAt);
+    })
+    .catch(function(err) {
+        console.log('加载 SRS 采纳状态失败:', err);
+    });
+}
+
+function updateSrsAdoptionUI(status, adoptAt) {
+    var adoptBar = document.getElementById('srsAdoptionBar');
+    var actions = document.getElementById('srsAdoptionActions');
+    var result = document.getElementById('srsAdoptionResult');
+    var badge = document.getElementById('srsAdoptionStatusBadge');
+    var resultText = document.getElementById('srsAdoptionResultText');
+
+    if (!adoptBar) return;
+    adoptBar.style.display = 'block';
+
+    if (status === 'adopted') {
+        actions.style.display = 'none';
+        result.style.display = 'block';
+        badge.textContent = '已采纳';
+        badge.className = 'status-badge adopted';
+        resultText.innerHTML = '✅ SRS 已于 ' + (adoptAt || '') + ' 采纳';
+    } else if (status === 'rejected') {
+        actions.style.display = 'none';
+        result.style.display = 'block';
+        badge.textContent = '已拒绝';
+        badge.className = 'status-badge rejected';
+        resultText.innerHTML = '❌ SRS 已于 ' + (adoptAt || '') + ' 拒绝';
+    } else {
+        actions.style.display = 'block';
+        result.style.display = 'none';
+        badge.textContent = '待审核';
+        badge.className = 'status-badge pending';
+    }
+}
+
+function adoptSRS() {
+    if (!currentAnalysisId) return;
+    fetch('/requirement_analysis/api/' + currentAnalysisId + '/srs/adopt/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            updateSrsAdoptionUI('adopted', new Date().toLocaleString());
+        } else {
+            alert('采纳失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(function(err) {
+        alert('请求失败: ' + err.message);
+    });
+}
+
+function rejectSRS() {
+    if (!currentAnalysisId) return;
+    fetch('/requirement_analysis/api/' + currentAnalysisId + '/srs/reject/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            updateSrsAdoptionUI('rejected', new Date().toLocaleString());
+        } else {
+            alert('拒绝失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(function(err) {
+        alert('请求失败: ' + err.message);
+    });
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+
+// ===== 文档维护功能（删除已采纳 / 重新提交拒绝的文档） =====
+
+function deleteAdoptedDoc(docId) {
+    if (!confirm('确定要删除此需求文档吗？删除后不可恢复。')) {
+        return;
+    }
+
+    fetch('/requirement_analysis/api/' + docId + '/delete/', {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(function(r) {
+        if (!r.ok) { return r.text().then(function(t) { throw new Error('请求失败: ' + (t || r.statusText)); }); }
+        return r.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            alert(data.message);
+            loadAdoptedDocs();
+        } else {
+            alert('删除失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(function(err) {
+        alert('删除失败: ' + err.message);
+    });
+}
+
+function resubmitDocument(docId) {
+    if (!confirm('确定要重新提交此文档吗？状态将恢复为待审核，可以重新采纳。')) {
+        return;
+    }
+
+    fetch('/requirement_analysis/api/' + docId + '/resubmit/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(function(r) {
+        if (!r.ok) { return r.text().then(function(t) { throw new Error('请求失败: ' + (t || r.statusText)); }); }
+        return r.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            alert(data.message);
+            loadAdoptedDocs();
+        } else {
+            alert('重新提交失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(function(err) {
+        alert('重新提交失败: ' + err.message);
+    });
+}
+
+
+// 页面加载时检查是否有已有 SRS
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        var savedId = sessionStorage.getItem('req_analysis_current_id');
+        if (savedId) {
+            currentAnalysisId = parseInt(savedId);
+            fetch('/requirement_analysis/api/' + currentAnalysisId + '/srs/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.data && data.data.srs_content) {
+                    showSrsCard();
+                    // 自动加载 SRS 内容（包含采纳状态）
+                    loadSRS();
+                }
+            })
+            .catch(function() {});
+        }
+    } catch(e) {}
+});

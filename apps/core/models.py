@@ -400,6 +400,15 @@ class RequirementAnalysis(models.Model):
     testability = models.JSONField(default=dict, verbose_name="可测试性评级")
     generation_strategy = models.JSONField(default=dict, blank=True, verbose_name="生成策略")
 
+    system = models.ForeignKey(
+        "System",
+        on_delete=models.CASCADE,
+        related_name="requirement_analyses",
+        verbose_name="所属系统",
+        null=True,
+        blank=True
+    )
+
     total_sections = models.IntegerField(default=0, verbose_name="总章节数")
     word_count = models.IntegerField(default=0, verbose_name="总字数")
     analysis_version = models.CharField(max_length=20, default="1.0", verbose_name="分析版本")
@@ -419,6 +428,25 @@ class RequirementAnalysis(models.Model):
         null=True, blank=True, verbose_name="审核人"
     )
     adopted_at = models.DateTimeField(null=True, blank=True, verbose_name="采纳/拒绝时间")
+
+    # SRS 生成
+    srs_content = models.JSONField(default=dict, blank=True, verbose_name="SRS内容")
+    srs_generated_at = models.DateTimeField(null=True, blank=True, verbose_name="SRS生成时间")
+
+    # 文档类型标记
+    brd_type = models.CharField(max_length=50, default="business_requirement", verbose_name="文档类型")
+
+    # SRS 采纳状态
+    SRS_ADOPTION_CHOICES = [
+        ('pending', '待审核'),
+        ('adopted', '已采纳'),
+        ('rejected', '已拒绝'),
+    ]
+    srs_adoption_status = models.CharField(
+        max_length=20, choices=SRS_ADOPTION_CHOICES,
+        default='pending', verbose_name="SRS采纳状态"
+    )
+    srs_adopted_at = models.DateTimeField(null=True, blank=True, verbose_name="SRS采纳/拒绝时间")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="分析时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")

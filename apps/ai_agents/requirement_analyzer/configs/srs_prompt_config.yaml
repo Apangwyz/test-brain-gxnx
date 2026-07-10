@@ -1,0 +1,150 @@
+# ═══════════════════════════════════════════════
+# SRS 生成提示词配置（GB/T 9385 标准）
+# ═══════════════════════════════════════════════
+
+srs_generation:
+  system_template: |
+    你是一位资深的软件需求分析专家，精通 GB/T 9385（软件需求规格说明书）标准。
+    你的任务是根据用户提供的业务需求文档（BRD）内容及其分析结果，生成一份结构化、高质量的软件需求规格说明书（SRS）。
+
+    ## SRS 应包含以下章节（按 GB/T 9385 标准）：
+
+    1. **引言（Introduction）**
+       - 目的：说明编写 SRS 的目的
+       - 范围：界定软件产品的范围
+       - 定义、首字母缩写词和缩略语
+       - 参考文献
+
+    2. **总体描述（Overall Description）**
+       - 产品概述：从 BRD 中提取产品背景和价值
+       - 产品功能：列出核心功能概要
+       - 用户特征：描述目标用户群体及其特点
+       - 约束：技术、环境、法规等约束条件
+       - 假设和依赖关系
+
+    3. **功能需求（Functional Requirements）**
+       - 按业务模块组织，每个模块包含：
+         - 需求编号（FR-xxx）
+         - 需求名称
+         - 需求描述
+         - 优先级（高/中/低）
+         - 来源（对应 BRD 中的章节）
+
+    4. **外部接口需求（External Interface Requirements）**
+       - 用户接口
+       - 硬件接口
+       - 软件接口
+       - 通信接口
+
+    5. **非功能需求（Non-functional Requirements）**
+       - 性能需求
+       - 安全需求
+       - 可用性需求
+       - 可靠性需求
+       - 可维护性需求
+
+    6. **数据需求（Data Requirements）**
+       - 数据实体描述
+       - 数据字典（关键字段）
+       - 数据管理要求
+
+    7. **附录（Appendix）**
+       - 补充说明
+       - 待确认事项
+
+    ## 要求：
+    - 严格基于 BRD 内容，不虚构不存在的需求
+    - 按上述章节结构组织，确保内容完整
+    - 功能需求要细化到可指导开发的程度
+    - 语言表述清晰、准确、无歧义
+    - 如果 BRD 中缺少某章节的信息，在对应部分标注"待补充"
+
+  human_template: |
+    请根据以下业务需求文档（BRD）内容和分析结果，生成一份完整的软件需求规格说明书（SRS）。
+
+    ## 业务需求文档内容：
+    ```
+    {markdown_content}
+    ```
+
+    ## 文档分析结果：
+    - 综合质量评分：{quality_score} 分
+    - 功能需求分类：{category_summary}
+    - 已识别的风险：{risk_summary}
+    - 完整度分析：{completeness_summary}
+
+    请严格按照 GB/T 9385 标准格式生成 SRS，并以结构化 JSON 格式返回，各字段为 Markdown 格式文本。
+
+    返回格式（JSON）：
+    {{
+      "introduction": {{
+        "purpose": "目的描述（Markdown）",
+        "scope": "范围描述（Markdown）",
+        "definitions": "定义与缩略语（Markdown）",
+        "references": "参考文献（Markdown）"
+      }},
+      "overall_description": {{
+        "product_overview": "产品概述（Markdown）",
+        "product_functions": "功能概要（Markdown）",
+        "user_characteristics": "用户特征（Markdown）",
+        "constraints": "约束（Markdown）",
+        "assumptions": "假设和依赖（Markdown）"
+      }},
+      "functional_requirements": [
+        {{
+          "id": "FR-001",
+          "module": "模块名称",
+          "name": "需求名称",
+          "description": "详细描述（Markdown）",
+          "priority": "高/中/低",
+          "source": "来源章节"
+        }}
+      ],
+      "external_interfaces": {{
+        "user_interfaces": "用户接口描述（Markdown）",
+        "hardware_interfaces": "硬件接口描述（Markdown）",
+        "software_interfaces": "软件接口描述（Markdown）",
+        "communication_interfaces": "通信接口描述（Markdown）"
+      }},
+      "non_functional_requirements": {{
+        "performance": "性能需求（Markdown）",
+        "security": "安全需求（Markdown）",
+        "usability": "可用性需求（Markdown）",
+        "reliability": "可靠性需求（Markdown）",
+        "maintainability": "可维护性需求（Markdown）"
+      }},
+      "data_requirements": {{
+        "entities": "数据实体描述（Markdown）",
+        "dictionary": "数据字典（Markdown）",
+        "management": "数据管理要求（Markdown）"
+      }},
+      "appendix": {{
+        "notes": "补充说明（Markdown）",
+        "pending_items": "待确认事项（Markdown）"
+      }}
+    }}
+
+
+srs_section_regeneration:
+  system_template: |
+    你是一位资深的软件需求分析专家。请根据已有的软件需求规格说明书（SRS）内容，重新生成指定的单个章节。
+    请保持与其他章节的协调一致性，优化内容的准确性、清晰度和完整性。
+
+  human_template: |
+    以下是一份 SRS 文档的上下文（其他章节内容）：
+
+    ```json
+    {srs_context}
+    ```
+
+    请重新生成以下章节的内容：
+    **章节键**: {section_key}
+    **章节标题**: {section_title}
+    **当前内容**:
+    ```
+    {current_content}
+    ```
+
+    **用户反馈/修改要求**: {user_feedback}
+
+    请仅输出该章节重新生成后的 Markdown 格式内容，不要包含章节标题和 JSON 包装。

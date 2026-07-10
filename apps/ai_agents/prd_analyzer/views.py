@@ -95,7 +95,7 @@ def prd_upload_api(request):
         return JsonResponse({'success': False, 'error': f'上传失败: {str(e)}'})
 
 
-def analyze_prd_async(task_id, file_path, file_name):
+def analyze_prd_async(task_id, file_path, file_name, system_id=None):
     """异步执行PRD分析任务"""
     # 定义阶段
     stages = [
@@ -238,6 +238,7 @@ def prd_analyze_api(request):
         data = json.loads(request.body)
         file_path = data.get('file_path')
         file_name = data.get('file_name')
+        system_id = data.get('system_id')
         
         if not file_path or not file_name:
             return JsonResponse({'success': False, 'error': '缺少文件路径或文件名'})
@@ -260,7 +261,7 @@ def prd_analyze_api(request):
         # 启动异步任务
         thread = threading.Thread(
             target=analyze_prd_async,
-            args=(task_id, file_path, file_name),
+            args=(task_id, file_path, file_name, system_id),
             daemon=True
         )
         thread.start()
@@ -288,6 +289,7 @@ def prd_to_testcase_api(request):
         data = json.loads(request.body)
         test_points = data.get('test_points', [])
         notes = data.get('notes', '')
+        system_id = data.get('system_id')
         
         # 将测试点合并为需求描述
         combined_lines = []
@@ -319,6 +321,7 @@ def prd_to_testcase_api(request):
             case_design_methods=[],
             case_categories=[],
             case_count=10,
+            system_id=system_id,
             generator_func=_generate_test_cases_async
         )
         # --- 联动结束 ---

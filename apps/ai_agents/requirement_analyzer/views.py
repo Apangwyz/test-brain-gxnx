@@ -18,6 +18,8 @@ from apps.utils.auth_decorators import session_or_apikey_auth
 from apps.core.models import RequirementAnalysis
 
 from .orchestrator import AnalysisOrchestrator
+from .srs_generator import SRSGenerator
+from .srs_prompts import SRSGeneratorPrompt
 import concurrent.futures
 
 
@@ -91,7 +93,7 @@ def _extract_content(file_path: str, file_type: str) -> str:
     return ""
 
 
-def _run_analysis_async(task_id: str, file_path: str, file_name: str, file_type: str):
+def _run_analysis_async(task_id: str, file_path: str, file_name: str, file_type: str, system_id: int = None):
     """异步执行分析（含 3 分钟超时保护）"""
     stages = [
         {"stage": "extracting", "title": "提取内容", "description": "从文件中提取文本..."},
@@ -111,15 +113,18 @@ def _run_analysis_async(task_id: str, file_path: str, file_name: str, file_type:
             return None
         progress_manager.complete_stage("extracting")
 
-        llm_service = LLMServiceFactory.create_with_fallback(agent_name="requirement_analyzer", preferred_provider=DEFAULT_PROVIDER)
+        llm_service = LLMServiceFactory.create_with_fallback(
+            agent_name="requirement_analyzer", preferred_provider=DEFAULT_PROVIDER,
+            timeout=60, max_retries=0
+        )
         orchestrator = AnalysisOrchestrator(llm_service)
-        return orchestrator.analyze(file_name, content, progress_manager)
+        return orchestrator.analyze(file_name, content, progress_manager, system_id)
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_do_analysis)
             # 3 分钟超时
-            TIMEOUT_SECONDS = 180
+            TIMEOUT_SECONDS = 300
             analysis = future.result(timeout=TIMEOUT_SECONDS)
 
     except concurrent.futures.TimeoutError:
@@ -139,6 +144,7 @@ def analyze_api(request):
         file_path = data.get("file_path")
         file_name = data.get("file_name")
         file_type = data.get("file_type", os.path.splitext(file_name)[1].lower())
+        system_id = data.get("system_id")
 
         if not file_path or not os.path.exists(file_path):
             return JsonResponse({"success": False, "error": "文件不存在"})
@@ -146,7 +152,7 @@ def analyze_api(request):
         task_id = generate_task_id("req_analysis")
         thread = threading.Thread(
             target=_run_analysis_async,
-            args=(task_id, file_path, file_name, file_type),
+            args=(task_id, file_path, file_name, file_type, system_id),
             daemon=True,
         )
         thread.start()
@@ -179,6 +185,16 @@ def analysis_result_api(request, analysis_id: int):
                 "generation_strategy": analysis.generation_strategy,
                 "total_sections": analysis.total_sections,
                 "word_count": analysis.word_count,
+                "system_id": analysis.system_id,
+                "adoption_status": analysis.adoption_status,
+                "adopted_at": analysis.adopted_at.isoformat() if analysis.adopted_at else None,
+                "srs_content": analysis.srs_content,
+                "srs_generated_at": analysis.srs_generated_at.isoformat() if analysis.srs_generated_at else None,
+                "srs_adoption_status": analysis.srs_adoption_status,
+                "srs_adopted_at": analysis.srs_adopted_at.isoformat() if analysis.srs_adopted_at else None,
+                "system_name": analysis.system.name if analysis.system else None,
+                                "system_id": analysis.system_id,
+                "system_name": analysis.system.name if analysis.system else None,
                 "created_at": analysis.created_at.isoformat(),
             }
         })
@@ -211,6 +227,10 @@ def latest_result_api(request):
                 "generation_strategy": analysis.generation_strategy,
                 "total_sections": analysis.total_sections,
                 "word_count": analysis.word_count,
+                                "system_id": analysis.system_id,
+                "adoption_status": analysis.adoption_status,
+                "adopted_at": analysis.adopted_at.isoformat() if analysis.adopted_at else None,
+                "system_name": analysis.system.name if analysis.system else None,
                 "created_at": analysis.created_at.isoformat(),
             }
         })
@@ -234,10 +254,76 @@ def generate_from_analysis_api(request):
             return JsonResponse({"success": False, "error": "缺少 analysis_id"})
 
         analysis = RequirementAnalysis.objects.get(id=analysis_id)
+
+        # 检查是否有关联的已采纳 SRS
+        if not analysis.srs_content or analysis.srs_adoption_status != 'adopted':
+            return JsonResponse({
+                "success": False,
+                "error": "该需求文档尚未生成并采纳对应的 SRS，请先生成并采纳 SRS 后再生成测试用例"
+            })
+
         strategy = analysis.generation_strategy
 
-        # 组装需求描述
-        combined = analysis.content_preview or ""
+        # 组装需求描述（BRD + SRS 内容合并）
+        brd_content = analysis.content or analysis.content_preview or ""
+        srs_content_text = ""
+        if analysis.srs_content:
+            try:
+                # 将结构化 SRS 转换为文本描述
+                srs_data = analysis.srs_content
+                parts = []
+                # 引言
+                intro = srs_data.get("introduction", {})
+                if isinstance(intro, dict):
+                    for v in intro.values():
+                        if isinstance(v, str) and v.strip():
+                            parts.append(v)
+                # 总体描述
+                overall = srs_data.get("overall_description", {})
+                if isinstance(overall, dict):
+                    for v in overall.values():
+                        if isinstance(v, str) and v.strip():
+                            parts.append(v)
+                # 功能需求
+                fr_list = srs_data.get("functional_requirements", [])
+                if isinstance(fr_list, list):
+                    for fr in fr_list:
+                        if isinstance(fr, dict):
+                            fr_text = f"【{fr.get('id','')}】{fr.get('name','')}（{fr.get('module','')}，优先级：{fr.get('priority','')}）：{fr.get('description','')}"
+                            parts.append(fr_text)
+                # 非功能需求
+                nfr = srs_data.get("non_functional_requirements", {})
+                if isinstance(nfr, dict):
+                    for v in nfr.values():
+                        if isinstance(v, str) and v.strip():
+                            parts.append(v)
+                # 外部接口
+                ext = srs_data.get("external_interfaces", {})
+                if isinstance(ext, dict):
+                    for v in ext.values():
+                        if isinstance(v, str) and v.strip():
+                            parts.append(v)
+                # 数据需求
+                data_req = srs_data.get("data_requirements", {})
+                if isinstance(data_req, dict):
+                    for v in data_req.values():
+                        if isinstance(v, str) and v.strip():
+                            parts.append(v)
+
+                srs_content_text = "\n".join(parts)
+            except Exception:
+                import json
+                srs_content_text = json.dumps(analysis.srs_content, ensure_ascii=False, indent=2)
+
+        combined_parts = []
+        if brd_content.strip():
+            combined_parts.append("=== 业务需求文档（BRD）内容 ===")
+            combined_parts.append(brd_content.strip())
+        if srs_content_text.strip():
+            combined_parts.append("\n=== 软件需求规格说明书（SRS）内容 ===")
+            combined_parts.append(srs_content_text.strip())
+
+        combined = "\n".join(combined_parts)
         if not combined.strip():
             return JsonResponse({"success": False, "error": "分析记录内容为空"})
 
@@ -257,6 +343,7 @@ def generate_from_analysis_api(request):
             case_design_methods=[],
             case_categories=[],
             case_count=case_count,
+            system_id=analysis.system_id,
             generator_func=_generate_test_cases_async,
         )
 
@@ -280,9 +367,15 @@ def adopt_document_api(request, analysis_id: int):
     try:
         analysis = RequirementAnalysis.objects.get(id=analysis_id)
         if analysis.adoption_status != 'pending':
+            status_label = dict(RequirementAnalysis.ADOPTION_CHOICES).get(analysis.adoption_status, analysis.adoption_status)
+            hint = ''
+            if analysis.adoption_status == 'adopted':
+                hint = '，该文档已在「已采纳的需求文档」列表中，请勿重复操作'
+            elif analysis.adoption_status == 'rejected':
+                hint = '，该文档已被拒绝，请先「重新提交」后再操作'
             return JsonResponse({
                 "success": False,
-                "error": f"该文档已{ dict(RequirementAnalysis.ADOPTION_CHOICES).get(analysis.adoption_status, analysis.adoption_status) }，无法重复操作"
+                "error": f"该文档当前状态为「{status_label}」{hint}"
             })
 
         analysis.adoption_status = 'adopted'
@@ -329,7 +422,7 @@ def reject_document_api(request, analysis_id: int):
         if analysis.adoption_status != 'pending':
             return JsonResponse({
                 "success": False,
-                "error": f"该文档已{ dict(RequirementAnalysis.ADOPTION_CHOICES).get(analysis.adoption_status, analysis.adoption_status) }，无法重复操作"
+                "error": f"该文档当前状态为「{ dict(RequirementAnalysis.ADOPTION_CHOICES).get(analysis.adoption_status, analysis.adoption_status) }」，无法重复操作"
             })
 
         analysis.adoption_status = 'rejected'
@@ -351,6 +444,36 @@ def reject_document_api(request, analysis_id: int):
 
 @session_or_apikey_auth
 @require_http_methods(["GET"])
+def adopted_srs_api(request):
+    """获取已采纳 SRS 的列表"""
+    try:
+        analyses = RequirementAnalysis.objects.filter(
+            srs_adoption_status='adopted'
+        ).order_by('-srs_adopted_at')
+
+        docs = []
+        for a in analyses:
+            docs.append({
+                "id": a.id,
+                "document_name": a.document_name,
+                "quality_score": a.quality_score.get("overall_score", "N/A") if isinstance(a.quality_score, dict) else "N/A",
+                "content_preview": (a.content_preview or "")[:200],
+                "total_sections": a.total_sections,
+                "word_count": a.word_count,
+                "system_id": a.system_id,
+                "system_name": a.system.name if a.system else None,
+                "srs_adopted_at": a.srs_adopted_at.isoformat() if a.srs_adopted_at else None,
+                "document_adopted_at": a.adopted_at.isoformat() if a.adopted_at else None,
+            })
+
+        return JsonResponse({"success": True, "data": docs})
+    except Exception as e:
+        logger.error(f"获取已采纳 SRS 列表失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@session_or_apikey_auth
+@require_http_methods(["GET"])
 def adopted_docs_api(request):
     """获取当前用户已采纳的需求文档列表"""
     try:
@@ -361,6 +484,8 @@ def adopted_docs_api(request):
 
         docs = []
         for a in analyses:
+            has_srs = bool(a.srs_content)
+            srs_status = a.srs_adoption_status if has_srs else None
             docs.append({
                 "id": a.id,
                 "document_name": a.document_name,
@@ -369,7 +494,12 @@ def adopted_docs_api(request):
                 "content_preview": (a.content_preview or "")[:300],
                 "total_sections": a.total_sections,
                 "word_count": a.word_count,
+                "system_id": a.system_id,
+                "system_name": a.system.name if a.system else None,
                 "adopted_at": a.adopted_at.isoformat() if a.adopted_at else None,
+                "has_srs": has_srs,
+                "srs_adoption_status": srs_status,
+                "srs_adopted_at": a.srs_adopted_at.isoformat() if a.srs_adopted_at else None,
             })
 
         return JsonResponse({"success": True, "data": docs})
@@ -380,7 +510,318 @@ def adopted_docs_api(request):
 
 
 @session_or_apikey_auth
+@require_http_methods(["POST"])
+def generate_srs_api(request, analysis_id: int):
+    """触发 SRS 生成（异步），支持 force 参数强制重新生成"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        if analysis.adoption_status != 'adopted':
+            return JsonResponse({"success": False, "error": "请先采纳需求文档后才能生成 SRS"})
+
+        # 检查是否需要强制重新生成
+        force = False
+        try:
+            body = json.loads(request.body) if request.body else {}
+            force = body.get('force', False)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        if analysis.srs_content and not force:
+            return JsonResponse({"success": True, "message": "SRS 已存在，无需重新生成", "srs_generated": True})
+
+        # 清除原有 SRS 内容（强制重新生成或之前生成失败时均清除）
+        if analysis.srs_content:
+            analysis.srs_content = {}
+            analysis.srs_adoption_status = 'pending'
+            analysis.srs_adopted_at = None
+            analysis.srs_generated_at = None
+            analysis.save(update_fields=["srs_content", "srs_adoption_status", "srs_adopted_at", "srs_generated_at"])
+
+        task_id = generate_task_id("srs_generation")
+        thread = threading.Thread(
+            target=_generate_srs_async,
+            args=(task_id, analysis_id),
+            daemon=True,
+        )
+        thread.start()
+
+        return JsonResponse({"success": True, "task_id": task_id, "message": "SRS 生成任务已启动"})
+
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"触发 SRS 生成失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+def _generate_srs_async(task_id: str, analysis_id: int):
+    """异步执行 SRS 生成（含 3 分钟超时保护）"""
+    from apps.utils.progress_manager import TaskProgressManager
+    stages = [
+        {"stage": "preparing", "title": "准备", "description": "准备生成环境..."},
+        {"stage": "generating", "title": "生成中", "description": "AI 正在生成 SRS..."},
+        {"stage": "completed", "title": "完成", "description": "SRS 生成完成"},
+    ]
+    progress_manager = TaskProgressManager(task_id, stages)
+
+    def _do_generate():
+        """实际执行体（供超时包装使用）"""
+        progress_manager.start_stage("preparing")
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        progress_manager.complete_stage("preparing")
+
+        progress_manager.start_stage("generating")
+        llm_service = LLMServiceFactory.create_with_fallback(
+            agent_name="requirement_analyzer", preferred_provider=DEFAULT_PROVIDER,
+            timeout=120, max_retries=0
+        )
+
+        # 组装分析结果字典
+        analysis_result = {
+            "quality_score": analysis.quality_score or {},
+            "category_stats": analysis.category_stats or {},
+            "risk_identification": analysis.risk_identification or {},
+            "completeness": analysis.completeness or {},
+            "consistency": analysis.consistency or {},
+            "testability": analysis.testability or {},
+        }
+
+        generator = SRSGenerator(llm_service)
+        srs_data = generator.generate(analysis.content or "", analysis_result)
+
+        # 存入数据库
+        analysis.srs_content = srs_data
+        analysis.srs_generated_at = timezone.now()
+        analysis.save(update_fields=["srs_content", "srs_generated_at"])
+
+        progress_manager.complete_stage("generating")
+        progress_manager.set_completed(result={"analysis_id": analysis_id}, message="SRS 生成完成")
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_generate)
+            # 5 分钟超时（SRS 生成通常比分析快，但仍需足够时间）
+            TIMEOUT_SECONDS = 300
+            future.result(timeout=TIMEOUT_SECONDS)
+
+    except concurrent.futures.TimeoutError:
+        logger.error(f"SRS 生成超时（{300}秒）: task_id={task_id}, analysis_id={analysis_id}")
+        progress_manager.error_stage("generating", f"SRS 生成超时（超过{300}秒），请检查 LLM 服务状态或稍后重试")
+    except RequirementAnalysis.DoesNotExist:
+        progress_manager.error_stage("preparing", "分析记录已被删除")
+    except Exception as e:
+        logger.error(f"SRS 生成失败: {str(e)}", exc_info=True)
+        progress_manager.error_stage("generating", f"SRS 生成失败: {str(e)[:200]}")
+
+
+@session_or_apikey_auth
+@require_http_methods(["GET", "PUT"])
+def srs_detail_api(request, analysis_id: int):
+    """获取/更新 SRS 内容"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+
+        if request.method == "GET":
+            srs_content = analysis.srs_content or {}
+            srs_generated_at = analysis.srs_generated_at
+            return JsonResponse({
+                "success": True,
+                "data": {
+                    "srs_content": srs_content,
+                    "srs_generated_at": srs_generated_at.isoformat() if srs_generated_at else None,
+                    "document_name": analysis.document_name,
+                }
+            })
+
+        elif request.method == "PUT":
+            data = json.loads(request.body)
+            section_updates = data.get("srs_content", {})
+
+            current_srs = analysis.srs_content or {}
+
+            # 深度合并更新
+            def deep_merge(base, updates):
+                for key, val in updates.items():
+                    if isinstance(val, dict) and isinstance(base.get(key), dict):
+                        deep_merge(base[key], val)
+                    else:
+                        base[key] = val
+                return base
+
+            updated_srs = deep_merge(current_srs, section_updates)
+            analysis.srs_content = updated_srs
+            analysis.save(update_fields=["srs_content"])
+
+            return JsonResponse({"success": True, "message": "SRS 已保存"})
+
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "无效的 JSON 数据"})
+    except Exception as e:
+        logger.error(f"SRS 详情操作失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+
+@session_or_apikey_auth
+@require_http_methods(["POST"])
+def srs_adopt_api(request, analysis_id: int):
+    """采纳 SRS"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        if not analysis.srs_content:
+            return JsonResponse({"success": False, "error": "SRS 尚未生成，无法采纳"})
+        analysis.srs_adoption_status = "adopted"
+        analysis.srs_adopted_at = timezone.now()
+        analysis.save(update_fields=["srs_adoption_status", "srs_adopted_at"])
+        return JsonResponse({"success": True, "message": "SRS 已采纳"})
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"SRS 采纳失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@session_or_apikey_auth
+@require_http_methods(["POST"])
+def srs_reject_api(request, analysis_id: int):
+    """拒绝 SRS"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        if not analysis.srs_content:
+            return JsonResponse({"success": False, "error": "SRS 尚未生成"})
+        analysis.srs_adoption_status = "rejected"
+        analysis.srs_adopted_at = timezone.now()
+        analysis.save(update_fields=["srs_adoption_status", "srs_adopted_at"])
+        return JsonResponse({"success": True, "message": "SRS 已拒绝"})
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"SRS 拒绝失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@session_or_apikey_auth
 @require_http_methods(["GET"])
+def export_srs_api(request, analysis_id: int):
+    """导出 SRS 为 Markdown 文件下载"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        srs_content = analysis.srs_content
+        if not srs_content:
+            return JsonResponse({"success": False, "error": "SRS 尚未生成"})
+
+        generator = SRSGenerator.__new__(SRSGenerator)
+        markdown = generator.srs_to_markdown(srs_content)
+
+        safe_name = analysis.document_name.replace("/", "_").replace("\\", "_")
+        ts = ""
+        if hasattr(analysis.srs_generated_at, 'strftime'):
+            ts = analysis.srs_generated_at.strftime('%Y%m%d_%H%M%S')
+        elif hasattr(analysis.created_at, 'strftime'):
+            ts = analysis.created_at.strftime('%Y%m%d_%H%M%S')
+        filename = f"软件需求规格说明书_{safe_name}_{ts}.md"
+
+        from urllib.parse import quote
+        response = HttpResponse(markdown, content_type="text/markdown; charset=utf-8")
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
+        return response
+
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"导出 SRS 失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+
+
+
+@session_or_apikey_auth
+@require_http_methods(["GET"])
+def my_docs_api(request):
+    """获取当前用户的所有需求文档（已采纳 + 已拒绝），按状态分组"""
+    try:
+        analyses = RequirementAnalysis.objects.filter(
+            adoption_status__in=['adopted', 'rejected']
+        ).order_by('-adopted_at', '-created_at')
+
+        docs = []
+        for a in analyses:
+            has_srs = bool(a.srs_content)
+            srs_status = a.srs_adoption_status if has_srs else None
+            docs.append({
+                "id": a.id,
+                "document_name": a.document_name,
+                "adoption_status": a.adoption_status,
+                "quality_score": a.quality_score.get("overall_score", "N/A") if isinstance(a.quality_score, dict) else "N/A",
+                "content": a.content or "",
+                "content_preview": (a.content_preview or "")[:300],
+                "total_sections": a.total_sections,
+                "word_count": a.word_count,
+                "system_id": a.system_id,
+                "system_name": a.system.name if a.system else None,
+                "adopted_at": a.adopted_at.isoformat() if a.adopted_at else None,
+                "has_srs": has_srs,
+                "srs_adoption_status": srs_status,
+                "srs_adopted_at": a.srs_adopted_at.isoformat() if a.srs_adopted_at else None,
+            })
+
+        return JsonResponse({"success": True, "data": docs})
+    except Exception as e:
+        logger.error(f"获取文档列表失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@session_or_apikey_auth
+@require_http_methods(["DELETE"])
+def delete_document_api(request, analysis_id: int):
+    """删除需求文档记录（已采纳/已拒绝/待审核均可删除）"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        doc_name = analysis.document_name
+        analysis.delete()
+        logger.info(f"删除需求文档: id={analysis_id}, name={doc_name}")
+        return JsonResponse({
+            "success": True,
+            "message": f"需求文档「{doc_name}」已删除"
+        })
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"删除需求文档失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@session_or_apikey_auth
+@require_http_methods(["POST"])
+def resubmit_document_api(request, analysis_id: int):
+    """重新提交已拒绝的需求文档：重置为待审核状态"""
+    try:
+        analysis = RequirementAnalysis.objects.get(id=analysis_id)
+        if analysis.adoption_status != 'rejected':
+            return JsonResponse({
+                "success": False,
+                "error": "仅已拒绝的文档可以重新提交"
+            })
+
+        analysis.adoption_status = 'pending'
+        analysis.adoption_reviewer = None
+        analysis.adopted_at = None
+        analysis.save(update_fields=["adoption_status", "adoption_reviewer", "adopted_at"])
+
+        logger.info(f"重新提交需求文档: id={analysis_id}, name={analysis.document_name}")
+        return JsonResponse({
+            "success": True,
+            "message": f"需求文档「{analysis.document_name}」已重新提交，状态恢复为待审核"
+        })
+    except RequirementAnalysis.DoesNotExist:
+        return JsonResponse({"success": False, "error": "分析记录不存在"})
+    except Exception as e:
+        logger.error(f"重新提交需求文档失败: {str(e)}", exc_info=True)
+        return JsonResponse({"success": False, "error": str(e)})
+
 def export_report_api(request, analysis_id: int):
     """导出分析报告（Markdown 格式下载）"""
     try:
@@ -449,7 +890,18 @@ def export_report_api(request, analysis_id: int):
             return m.get(t, t or "其他")
 
         lines = []
-        lines.append("# 需求分析报告")
+
+        def _brd_rating(score):
+            if score >= 90:
+                return "优（Excellent）"
+            elif score >= 80:
+                return "良（Good）"
+            elif score >= 60:
+                return "中（Fair）"
+            else:
+                return "差（Poor）"
+
+        lines.append("# 业务需求分析评分报告")
         lines.append("")
         lines.append(f"- **文档名称**: {analysis.document_name}")
         ct = analysis.created_at
@@ -465,6 +917,19 @@ def export_report_api(request, analysis_id: int):
         lines.append("## 一、综合评分")
         lines.append("")
         lines.append(f"**综合得分**: {overall} 分")
+        lines.append("")
+        score_val = overall if isinstance(overall, (int, float)) else 0
+        lines.append(f"**综合等级**: {_brd_rating(score_val)}")
+        lines.append("")
+        lines.append("### 业务需求文档（BRD）评分说明")
+        lines.append("")
+        lines.append("本评分基于以下六个维度对业务需求文档进行综合评估：")
+        lines.append("- **完整性**：文档是否覆盖功能描述、业务流程、边界条件、异常处理等核心要素")
+        lines.append("- **清晰度**：表述是否明确无歧义，业务术语是否统一")
+        lines.append("- **一致性**：前后章节是否存在矛盾或重复描述")
+        lines.append("- **可测试性**：需求是否能被有效验证和测试")
+        lines.append("- **结构化程度**：文档是否有清晰的层次结构")
+        lines.append("- **业务价值**：需求是否清晰地体现了业务目标和用户价值")
         lines.append("")
         lines.append("| 维度 | 评分 |")
         lines.append("|------|------|")

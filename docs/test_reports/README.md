@@ -12,6 +12,7 @@
 | 2026-06-02 | 进度管理重构（StageProgressManager） | [`2026-06-02_improvement-refactoring-test-report.md`](./2026-06-02_improvement-refactoring-test-report.md) | 8 | 100% |
 | 2026-06-12 | 需求文档深度分析功能（初始版） | [`2026-06-12-requirement-analysis-test-report.md`](./2026-06-12-requirement-analysis-test-report.md) | 48 | 100% |
 | 2026-06-12 | 需求文档深度分析功能（v2 采纳工作流） | [`2026-06-12-requirement-analysis-adoption-test-report.md`](./2026-06-12-requirement-analysis-adoption-test-report.md) | **60** | 100% |
+| 2026-06-30 | 全生命周期归属系统绑定 | [`2026-06-30-system-lifecycle-binding-test-report.md`](./2026-06-30-system-lifecycle-binding-test-report.md) | **60** | 100% |
 
 ---
 

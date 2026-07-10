@@ -31,6 +31,7 @@
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="page-header">
     <h4>测试点 &amp; 测试场景解析</h4>
     <p>上传需求文档，AI 自动提取测试点、生成测试场景</p>
@@ -38,6 +39,13 @@
 
 <div class="card">
     <div class="card-body">
+        <div class="form-group">
+            <label for="prd-system-select">选择所属系统 <span class="required-mark" style="color: red;">*</span></label>
+            <select class="form-control" id="prd-system-select" style="min-height: 40px;">
+                <option value="">-- 请选择系统 --</option>
+            </select>
+            <small class="form-text text-muted">选择需求文档所属的系统</small>
+        </div>
         <div class="text-center" style="margin-bottom: 16px;">
             <button type="button" class="btn btn-primary btn-lg" onclick="showUploadModal()">
                 <i class="fas fa-file-upload"></i> 选择要解析的文件

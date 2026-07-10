@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.uploadedFilePath = '';
     window.uploadedFileName = '';
     
+    // 加载系统列表
+    loadPrdSystems();
+    
     // 初始化统一进度管理器
     const progressManager = new CommonProgressManager({
         moduleName: 'prd_analyzer',
@@ -33,6 +36,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // 绑定解析按钮事件
     bindAnalyzeButtonEvent();
 });
+
+// 加载系统列表
+function loadPrdSystems() {
+    fetch('/api/systems/?status=active')
+    .then(r => r.json())
+    .then(data => {
+        const select = document.getElementById('prd-system-select');
+        if (!select) return;
+        if (data.success && data.systems) {
+            select.innerHTML = '<option value="">-- 请选择系统 --</option>';
+            data.systems.forEach(function(s) {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name + ' (' + s.code + ')';
+                select.appendChild(opt);
+            });
+        }
+    })
+    .catch(err => console.error('[prd_analyzer] 加载系统列表失败:', err));
+}
 
 // 显示上传模态框
 function showUploadModal() {
@@ -92,6 +115,14 @@ function bindAnalyzeButtonEvent() {
             showNotification('请先上传文件', 'warning');
             return;
         }
+        
+        const systemId = document.getElementById('prd-system-select')?.value;
+        if (!systemId) {
+            showNotification('请先选择所属系统', 'warning');
+            document.getElementById('prd-system-select')?.focus();
+            return;
+        }
+        window.prdSystemId = parseInt(systemId);
 
         // 显示进度界面
         const progressManager = new CommonProgressManager({
@@ -130,7 +161,8 @@ async function analyzePrdDocument(progressManager) {
             },
             body: JSON.stringify({
                 file_path: window.uploadedFilePath,
-                file_name: window.uploadedFileName
+                file_name: window.uploadedFileName,
+                system_id: window.prdSystemId || null
             })
         });
 

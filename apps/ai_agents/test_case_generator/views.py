@@ -80,6 +80,18 @@ async def generate(request):
         requirements = requirements + "\n\n---\n" + rag_context
     # --- RAG 结束 ---
 
+    # --- 手动选择的知识库文档 ---
+    selected_kb_ids = data.get('selected_kb_ids', '')
+    if selected_kb_ids:
+        from apps.core.models import KnowledgeBase
+        ids = [int(x.strip()) for x in selected_kb_ids.split(',') if x.strip().isdigit()]
+        if ids:
+            docs = KnowledgeBase.objects.filter(id__in=ids)
+            extra_context = "\n\n".join([f"【{d.title}】\n{d.content}" for d in docs])
+            if extra_context:
+                requirements = requirements + "\n\n---\n【用户选中的知识库文档】\n" + extra_context
+    # --- 结束 ---
+
     if not requirements:
         return JsonResponse({
             'success': False,
@@ -161,6 +173,18 @@ def generate_with_progress(request):
         requirements = requirements + "\n\n---\n" + rag_context
     # --- RAG 结束 ---
 
+    # --- 手动选择的知识库文档 ---
+    selected_kb_ids = data.get('selected_kb_ids', '')
+    if selected_kb_ids:
+        from apps.core.models import KnowledgeBase
+        ids = [int(x.strip()) for x in selected_kb_ids.split(',') if x.strip().isdigit()]
+        if ids:
+            docs = KnowledgeBase.objects.filter(id__in=ids)
+            extra_context = "\n\n".join([f"【{d.title}】\n{d.content}" for d in docs])
+            if extra_context:
+                requirements = requirements + "\n\n---\n【用户选中的知识库文档】\n" + extra_context
+    # --- 结束 ---
+
     if not requirements:
         return JsonResponse({
             'success': False,
@@ -205,7 +229,8 @@ async def _generate_test_cases_async(
     llm_provider: str,
     case_design_methods: list,
     case_categories: list,
-    case_count: int
+    case_count: int,
+    system_id: int = None
 ):
     """
     异步生成测试用例，带进度跟踪
@@ -353,7 +378,7 @@ async def _generate_test_cases_async(
         
         # 完成任务
         logger.info(f"任务 {task_id} - 所有阶段完成，设置任务状态为完成")
-        progress_manager.set_completed(test_cases)
+        progress_manager.set_completed(test_cases, system_id=system_id)
         logger.info(f"任务 {task_id} 完成，生成 {len(test_cases)} 条测试用例")
         
     except Exception as e:

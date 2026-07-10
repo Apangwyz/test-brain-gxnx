@@ -1,6 +1,7 @@
 // 测试用例生成页面专用脚本
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[generate.js] DOMContentLoaded fired');
     
     // 初始化表单提交功能
     initFormSubmit();
@@ -10,6 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 加载已采纳需求文档
     loadAdoptedDocs();
+    
+    console.log('[generate.js] All init functions called');
 });
 
 
@@ -65,7 +68,8 @@ function initFormSubmit() {
                 llm_provider: document.getElementById('llm-provider')?.value || 'deepseek',
                 case_design_methods: selectedDesignMethods,
                 case_categories: selectedCaseCategories,
-                case_count: document.getElementById('case_count')?.value || '10'
+                case_count: document.getElementById('case_count')?.value || '10',
+                selected_kb_ids: document.getElementById('selectedKbIds')?.value || ''
             };
             
             console.log('发送的数据:', requestData);
@@ -167,6 +171,198 @@ function initOtherFeatures() {
                 }
             }
         }
+    }
+    
+    // 浏览知识库按钮事件
+    const browseBtn = document.getElementById('browseKnowledgeBtn');
+    console.log('[generate.js] browseKnowledgeBtn element:', browseBtn);
+    if (browseBtn) {
+        browseBtn.addEventListener('click', function() {
+            console.log('[generate.js] browseKnowledgeBtn clicked');
+            openKnowledgeBrowser();
+        });
+    }
+}
+
+// ===== 知识库浏览模态框 =====
+let kbBrowserModal = null;
+
+function openKnowledgeBrowser() {
+    console.log('[generate.js] openKnowledgeBrowser called');
+    if (kbBrowserModal) {
+        kbBrowserModal.modal('show');
+        loadKnowledgeListForBrowser();
+        return;
+    }
+
+    const modalHtml = '\x0a' +
+        '<div class="modal fade" id="knowledgeBrowserModal" tabindex="-1" role="dialog">\x0a' +
+        '    <div class="modal-dialog modal-lg" role="document">\x0a' +
+        '        <div class="modal-content">\x0a' +
+        '            <div class="modal-header">\x0a' +
+        '                <h5 class="modal-title">📚 浏览知识库</h5>\x0a' +
+        '                <button type="button" class="close" data-dismiss="modal" aria-label="Close">\x0a' +
+        '                    <span aria-hidden="true">&times;</span>\x0a' +
+        '                </button>\x0a' +
+        '            </div>\x0a' +
+        '            <div class="modal-body">\x0a' +
+        '                <div class="form-group">\x0a' +
+        '                    <input type="text" class="form-control" id="kbSearchInput" placeholder="搜索知识库文档...">\x0a' +
+        '                </div>\x0a' +
+        '                <div id="kbListContainer">\x0a' +
+        '                    <div class="text-center py-4">\x0a' +
+        '                        <div class="spinner"></div>\x0a' +
+        '                        <p class="mt-2 text-muted">加载知识库...</p>\x0a' +
+        '                    </div>\x0a' +
+        '                </div>\x0a' +
+        '                <div id="kbPagination" class="d-flex justify-content-between align-items-center mt-2">\x0a' +
+        '                    <small class="text-muted" id="kbTotalInfo">共 0 篇文档</small>\x0a' +
+        '                    <div>\x0a' +
+        '                        <button class="btn btn-sm btn-outline-secondary" id="kbPrevPage" disabled>上一页</button>\x0a' +
+        '                        <span class="mx-2" id="kbPageInfo">第 1 页</span>\x0a' +
+        '                        <button class="btn btn-sm btn-outline-secondary" id="kbNextPage" disabled>下一页</button>\x0a' +
+        '                    </div>\x0a' +
+        '                </div>\x0a' +
+        '            </div>\x0a' +
+        '            <div class="modal-footer">\x0a' +
+        '                <span id="kbSelectedCount" class="text-muted mr-auto">已选择 0 篇</span>\x0a' +
+        '                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>\x0a' +
+        '                <button type="button" class="btn btn-primary" id="kbConfirmBtn">确定选择</button>\x0a' +
+        '            </div>\x0a' +
+        '        </div>\x0a' +
+        '    </div>\x0a' +
+        '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    kbBrowserModal = $('#knowledgeBrowserModal');
+    let currentPage = 1;
+
+    function loadKnowledgeList(page, search) {
+        const container = document.getElementById('kbListContainer');
+        container.innerHTML = '<div class="text-center py-4"><div class="spinner"></div><p class="mt-2 text-muted">加载中...</p></div>';
+
+        let url = '/api/knowledge/list-select/?page=' + page;
+        if (search) {
+            url += '&search=' + encodeURIComponent(search);
+        }
+
+        fetch(url)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var items = data.items || [];
+                renderKnowledgeItems(items);
+                updatePagination(data.total, data.page);
+                currentPage = data.page || 1;
+            })
+            .catch(function(err) {
+                container.innerHTML = '<div class="alert alert-danger">加载知识库失败: ' + err.message + '</div>';
+            });
+    }
+
+    function renderKnowledgeItems(items) {
+        var container = document.getElementById('kbListContainer');
+        var currentSelected = (document.getElementById('selectedKbIds') ? document.getElementById('selectedKbIds').value : '').split(',').filter(Boolean);
+
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class=\"text-center py-4 text-muted\"><i class=\"fas fa-inbox\" style=\"font-size: 32px; display: block; margin-bottom: 8px;\"></i>暂无知识库文档</div>';
+            return;
+        }
+
+        var html = '<div class=\"list-group\">';
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var checked = currentSelected.indexOf(String(item.id)) !== -1 ? 'checked' : '';
+            html += '\x0a' +
+                '                <div class=\"list-group-item d-flex align-items-center\">\x0a' +
+                '                    <input type=\"checkbox\" class=\"kb-item-checkbox mr-3\" value=\"" + item.id + "\" ' + checked + '>\x0a' +
+                '                    <div class=\"flex-grow-1\">\x0a' +
+                '                        <div class=\"font-weight-bold\">' + escapeHtml(item.title) + '</div>\x0a' +
+                '                        <small class=\"text-muted\">' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</small>\x0a' +
+                '                    </div>\x0a' +
+                '                </div>';
+        }
+        html += '</div>';
+        container.innerHTML = html;
+        updateSelectedCount();
+    }
+
+    function updatePagination(total, page) {
+        document.getElementById('kbTotalInfo').textContent = '共 ' + total + ' 篇文档';
+        document.getElementById('kbPageInfo').textContent = '第 ' + page + ' 页';
+        var totalPages = Math.ceil(total / 20) || 1;
+        document.getElementById('kbPrevPage').disabled = page <= 1;
+        document.getElementById('kbNextPage').disabled = page >= totalPages;
+    }
+
+    function updateSelectedCount() {
+        var checked = document.querySelectorAll('.kb-item-checkbox:checked').length;
+        document.getElementById('kbSelectedCount').textContent = '已选择 ' + checked + ' 篇';
+    }
+
+    window.loadKnowledgeListForBrowser = function() {
+        loadKnowledgeList(1, '');
+    };
+
+    // 搜索防抖
+    var searchTimer = null;
+    document.getElementById('kbSearchInput').addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        var self = this;
+        searchTimer = setTimeout(function() {
+            loadKnowledgeList(1, self.value.trim());
+        }, 300);
+    });
+
+    // 分页
+    document.getElementById('kbPrevPage').addEventListener('click', function() {
+        if (currentPage > 1) {
+            var search = document.getElementById('kbSearchInput').value.trim();
+            loadKnowledgeList(currentPage - 1, search);
+        }
+    });
+
+    document.getElementById('kbNextPage').addEventListener('click', function() {
+        var search = document.getElementById('kbSearchInput').value.trim();
+        loadKnowledgeList(currentPage + 1, search);
+    });
+
+    // 复选框变更
+    document.getElementById('kbListContainer').addEventListener('change', function(e) {
+        if (e.target.classList.contains('kb-item-checkbox')) {
+            updateSelectedCount();
+        }
+    });
+
+    // 确认选择
+    document.getElementById('kbConfirmBtn').addEventListener('click', function() {
+        var checkedBoxes = document.querySelectorAll('.kb-item-checkbox:checked');
+        var ids = [];
+        for (var i = 0; i < checkedBoxes.length; i++) {
+            ids.push(checkedBoxes[i].value);
+        }
+        var idsStr = ids.join(',');
+        document.getElementById('selectedKbIds').value = idsStr;
+        updateKnowledgeRefSection(idsStr);
+        kbBrowserModal.modal('hide');
+    });
+
+    kbBrowserModal.on('hidden.bs.modal', function() {
+        // keep DOM for reuse
+    });
+
+    loadKnowledgeList(1, '');
+    kbBrowserModal.modal('show');
+}
+
+function updateKnowledgeRefSection(idsStr) {
+    var ids = idsStr.split(',').filter(Boolean);
+    var container = document.getElementById('auto-retrieve-results');
+    if (!container) return;
+    if (ids.length === 0) {
+        container.innerHTML = '<small class=\"text-muted\">提交后将自动检索知识库中的相关文档，增强生成准确性</small>';
+    } else {
+        container.innerHTML = '<small class=\"text-success\">✅ 已手动选择 <strong>' + ids.length + '</strong> 篇知识库文档，将作为生成参考</small>';
     }
 }
 
@@ -369,12 +565,13 @@ function loadAdoptedDocs() {
     window.__adoptedDocContents = {};
     const container = document.getElementById('adoptedDocsList');
     const hint = document.getElementById('noAdoptedHint');
-    if (!container) return;
+    if (!container || !hint) return;
 
-    fetch('/requirement_analysis/api/adopted-docs/')
+    fetch('/requirement_analysis/api/adopted-docs/', { credentials: 'include' })
     .then(r => r.json())
     .then(data => {
         if (data.success && data.data && data.data.length > 0) {
+            console.log("[loadAdoptedDocs] success,", data.data.length, "docs");
             hint.style.display = 'none';
             container.style.display = 'block';
             container.innerHTML = '';
@@ -383,18 +580,40 @@ function loadAdoptedDocs() {
                 const preview = (doc.content_preview || '').substring(0, 120);
                 const item = document.createElement('div');
                 item.className = 'adopted-doc-check-item';
+                // 判断 SRS 状态
+                var srsStatus, srsClass;
+                if (doc.has_srs) {
+                    if (doc.srs_adoption_status === 'adopted') {
+                        srsStatus = 'SRS 已采纳';
+                        srsClass = 'low';
+                    } else if (doc.srs_adoption_status === 'rejected') {
+                        srsStatus = 'SRS 已拒绝';
+                        srsClass = 'high';
+                    } else {
+                        srsStatus = 'SRS 待审核';
+                        srsClass = 'medium';
+                    }
+                } else {
+                    srsStatus = '未生成 SRS';
+                    srsClass = 'medium';
+                }
+
                 item.innerHTML = `
-                    <input type="checkbox" class="adopted-doc-checkbox" value="${doc.id}" data-content="" data-doc-id="${doc.id}">
+                    <input type="checkbox" class="adopted-doc-checkbox" value="${doc.id}" data-content="" data-doc-id="${doc.id}" data-system-id="${doc.system_id || ''}" data-has-srs="${doc.has_srs || false}">
                     <div class="doc-info">
                         <div class="doc-name">📄 ${doc.document_name}</div>
-                        <div class="doc-meta">${doc.word_count || 0} 字 | ${doc.total_sections || 0} 节 | ${preview}...</div>
+                        <div class="doc-meta">
+                            ${doc.word_count || 0} 字 | ${doc.total_sections || 0} 节${doc.system_name ? ' | 系统: ' + doc.system_name : ''}
+                            <br><span class="issue-tag ${srsClass}">${srsStatus}</span>
+                        </div>
                     </div>
                     <div class="doc-score">${score}分</div>
                 `;
-                container.appendChild(item);
                 // 保存完整文档内容
                 window.__adoptedDocContents[doc.id] = doc.content || "";
+                container.appendChild(item);
             });
+            console.log("[loadAdoptedDocs] container has", container.children.length, "children");
             // 显示"确定选择"按钮并绑定事件
             const fillBtn = document.getElementById('fillSelectedBtn');
             fillBtn.style.display = 'inline-block';
@@ -406,12 +625,13 @@ function loadAdoptedDocs() {
                 fillBtn.style.display = checked.length > 0 ? 'inline-block' : 'none';
             });
         } else {
+            console.log('[loadAdoptedDocs] no data, success:', data.success, 'data:', data.data);
             hint.style.display = 'block';
             container.style.display = 'none';
         }
     })
     .catch(function(err) {
-        console.log('加载已采纳文档失败:', err);
+        console.error('[loadAdoptedDocs] fetch/catch error:', err);
     });
 }
 
@@ -445,6 +665,14 @@ function fillSelectedDocs() {
     checked.forEach(function(cb) { cb.checked = false; });
     document.getElementById('selectedCount').textContent = '0';
     document.getElementById('fillSelectedBtn').style.display = 'none';
+}
+
+// ===== HTML 转义 =====
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ===== Toast 通知 =====
