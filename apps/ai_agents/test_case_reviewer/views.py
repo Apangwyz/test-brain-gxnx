@@ -319,7 +319,7 @@ def case_review(request):
         }, status=500)
 
 
-def case_review_detail(request):
+def case_review_detail(request, test_case_id=None):
     return render(request, 'case_review_detail.html')
 
 

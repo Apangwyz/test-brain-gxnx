@@ -269,10 +269,10 @@ def upload_single_file(request):
                     
                     # 检查知识库服务是否可用
                     if knowledge_service.vector_store is None:
-                        logger.error("知识库服务未初始化，请检查阿里云API Key配置")
+                        logger.error("知识库服务未初始化：向量数据库(Milvus)未连接，请检查 ENABLE_MILVUS 环境变量及 Milvus 服务状态")
                         return JsonResponse({
                             'success': False,
-                            'error': '知识库服务未初始化，请联系管理员配置阿里云API Key'
+                            'error': '知识库服务未初始化：向量数据库(Milvus)未连接，请检查 Milvus 服务状态及 ENABLE_MILVUS 配置'
                         })
 
                     # 插入数据到Milvus

@@ -37,7 +37,7 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # 是否启用Milvus
-ENABLE_MILVUS = os.environ.get("ENABLE_MILVUS", "false").lower() == "true"
+ENABLE_MILVUS = os.environ.get("ENABLE_MILVUS", "true").lower() == "true"
 
 # 添加上传测试用例文件目录配置
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
@@ -152,14 +152,14 @@ LLM_PROVIDERS = {
     'default_provider': 'deepseek',
     'deepseek': {
         'name': 'DeepSeek',
-        'model': 'deepseek-v3.1',
-        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'model': 'deepseek-v4-flash',
+        'base_url': 'https://api.deepseek.com',
         'temperature': 0.7,
         'max_tokens': 128000,
     },
     'qwen': {
         'name': '通义千问',
-        'model': 'qwen-plus-2025-01-25',
+        'model': 'qwen3.7-plus',
         'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         'temperature': 0.7,
         'max_tokens': 65000,
