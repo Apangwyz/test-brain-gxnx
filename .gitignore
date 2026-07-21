@@ -187,3 +187,5 @@ __pycache__/
 test*.py
 *_test.py
 tests/
+# Milvus volumes (large runtime data)
+milvus/volumes/
