@@ -3,46 +3,120 @@
 
 {% block title %}TestBrain - 知识库管理{% endblock %}
 
+{% block extra_css %}
+<style>
+.nav-tabs .nav-link { font-weight: 500; }
+.tab-pane { padding-top: 24px; }
+.upload-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 48px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--bg-secondary);
+}
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+}
+.upload-zone .upload-icon { font-size: 40px; color: var(--text-tertiary); margin-bottom: 12px; }
+.upload-zone.dragover .upload-icon { color: var(--accent); }
+.knowledge-item {
+    transition: background 0.2s;
+    border-left: 3px solid transparent;
+}
+.knowledge-item:hover { background: var(--bg-tertiary); border-left-color: var(--accent); }
+.knowledge-item .content-preview {
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.delete-btn { visibility: hidden; }
+.knowledge-item:hover .delete-btn { visibility: visible; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
-    <h4>知识库管理</h4>
-    <p>管理知识条目，为 AI 测试用例生成提供上下文支撑</p>
+    <h4>📚 知识库管理</h4>
+    <p>管理知识条目与项目文档，为 AI 测试用例生成提供上下文支撑</p>
 </div>
 
-<div class="row">
-    <div class="col-md-5">
-        <div class="card">
-            <div class="card-header">添加知识条目</div>
-            <div class="card-body">
+<div class="card">
+    <div class="card-body">
+        <ul class="nav nav-tabs" id="knowledgeTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="add-tab" data-toggle="tab" href="#add" role="tab">
+                    ✏️ 手动添加
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="upload-tab" data-toggle="tab" href="#upload" role="tab">
+                    📤 文件上传
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="list-tab" data-toggle="tab" href="#list" role="tab">
+                    📋 知识库列表
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Tab 1: 手动添加 -->
+            <div class="tab-pane fade show active" id="add" role="tabpanel">
                 <form id="add-knowledge-form">
                     <div class="form-group">
-                        <label for="knowledge-title">标题<span class="required-mark">*</span></label>
-                        <input type="text" id="knowledge-title" name="title" class="form-control" placeholder="输入知识条目标题" required data-error-message="请输入知识条目标题">
+                        <label for="knowledge-title">标题 <span class="required-mark">*</span></label>
+                        <input type="text" id="knowledge-title" name="title" class="form-control" placeholder="输入知识条目标题" required>
                     </div>
                     <div class="form-group">
-                        <label for="knowledge-content">内容<span class="required-mark">*</span></label>
-                        <textarea id="knowledge-content" name="content" class="form-control" rows="10" placeholder="输入知识条目内容" required data-error-message="请输入知识条目内容"></textarea>
+                        <label for="knowledge-content">内容 <span class="required-mark">*</span></label>
+                        <textarea id="knowledge-content" name="content" class="form-control" rows="10" placeholder="输入知识条目内容" required></textarea>
                     </div>
-                    <div class="text-right">
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> 添加知识条目</button>
-                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> 添加知识条目</button>
                 </form>
             </div>
-        </div>
-    </div>
-    <div class="col-md-7">
-        <div class="card">
-            <div class="card-header">知识库列表</div>
-            <div class="card-body">
-                <div class="form-group">
-                    <input type="text" id="knowledge-search" class="form-control" placeholder="搜索知识库...">
+
+            <!-- Tab 2: 文件上传 -->
+            <div class="tab-pane fade" id="upload" role="tabpanel">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📂</div>
+                    <p><strong>点击选择文件</strong> 或将文件拖拽到此处</p>
+                    <p style="color: var(--text-tertiary); font-size: 13px;">支持 PDF、Word、Excel、Markdown、TXT 等多种格式</p>
+                    <input type="file" id="fileInput" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.txt,.csv,.xml,.json,.eml,.msg,.html,.ppt,.pptx,.rst,.rtf,.epub,.png,.jpg,.jpeg">
+                    <div id="selectedFile" style="margin-top: 10px; font-weight: 500; color: var(--success); display:none;"></div>
+                    <div id="uploadStatus" style="margin-top: 10px;"></div>
                 </div>
-                <div id="knowledge-list">
-                    <div class="text-center py-5">
-                        <div class="spinner"></div>
-                        <p style="color: var(--text-secondary); margin-top: 12px;">加载知识库...</p>
+                <div class="text-center" style="margin-top: 16px;">
+                    <button class="btn btn-success" id="uploadBtn" disabled>
+                        <i class="fas fa-upload"></i> 上传并存储到知识库
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab 3: 知识库列表 -->
+            <div class="tab-pane fade" id="list" role="tabpanel">
+                <div class="form-group">
+                    <div class="input-group">
+                        <input type="text" id="knowledge-search" class="form-control" placeholder="搜索知识库标题...">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" id="searchBtn" type="button"><i class="fas fa-search"></i></button>
+                        </div>
                     </div>
                 </div>
+                <div id="knowledge-list"><div class="text-center py-5"><div class="spinner"></div><p style="color: var(--text-secondary);">加载知识库...</p></div></div>
+                <nav id="listPagination" style="display:none;">
+                    <ul class="pagination justify-content-center" style="gap:4px;">
+                        <li class="page-item" id="prevPage"><a class="page-link" href="#">← 上一页</a></li>
+                        <li class="page-item disabled"><span class="page-link" id="pageInfo">1 / 1</span></li>
+                        <li class="page-item" id="nextPage"><a class="page-link" href="#">下一页 →</a></li>
+                    </ul>
+                </nav>
             </div>
         </div>
     </div>

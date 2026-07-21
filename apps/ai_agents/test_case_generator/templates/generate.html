@@ -64,6 +64,18 @@
     .issue-tag.high { background: #fce4ec; color: #c62828; }
     .issue-tag.medium { background: #fff3e0; color: #e65100; }
     .issue-tag.low { background: #e8f5e9; color: #2e7d32; }
+    /* 已选知识库文档标签 */
+    #selectedKbTags .badge {
+        transition: all 0.2s ease;
+        border: 1px solid #b3d7ff;
+    }
+    #selectedKbTags .badge:hover {
+        background: #cce5ff !important;
+        border-color: #80bdff;
+    }
+    #selectedKbTags .kb-remove-btn:hover {
+        color: #dc3545 !important;
+    }
 </style>
 {% endblock %}
 
@@ -185,7 +197,7 @@
                             <small class="text-muted">提交后将自动检索知识库中的相关文档，增强生成准确性</small>
                         </div>
                         <div style="margin-top: 8px;">
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="browseKnowledgeBtn" onclick="openKnowledgeBrowser();">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="browseKnowledgeBtn">
                                 📚 浏览知识库
                             </button>
                         </div>
@@ -249,5 +261,5 @@ function initializeSelectPickers() {
 }
 </script>
 <script src="{% static 'progress.js' %}"></script>
-<script src="{% static 'generate.js' %}?v=8"></script>
+<script src="{% static 'generate.js' %}?v=11"></script>
 {% endblock %}

@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+:root {
+  --accent: #00754A;
+  --success: #16a34a;
+  --warn: #fbbc05;
+  --danger: #c82014;
+  --hud-canvas: #0a1814;
+  --hud-surface-glass: rgba(30,57,50,0.48);
+  --hud-gold: #cba258;
+  --hud-gold-light: #dfc49d;
+  --hud-gold-muted: #a68a3e;
+  --hud-gold-glow: rgba(203,162,88,0.18);
+  --hud-gold-border: rgba(203,162,88,0.22);
+  --hud-gold-border-active: rgba(203,162,88,0.45);
+  --hud-text: rgba(255,255,255,1);
+  --hud-text-secondary: rgba(255,255,255,0.70);
+  --hud-text-tertiary: rgba(255,255,255,0.40);
+  --hud-accent-glow: rgba(0,117,74,0.15);
+  --hud-danger-glow: rgba(200,32,20,0.12);
+  --hud-success-glow: rgba(22,163,74,0.12);
+  --radius-md: 12px;
+  --radius-pill: 9999px;
+  --radius-sm: 4px;
+  --tracking-display: -0.01em;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:1920px; height:1080px; overflow:hidden;
+  background: var(--hud-canvas);
+  font-family: "Helvetica Neue",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+  letter-spacing: var(--tracking-display);
+  color: var(--hud-text);
+  -webkit-font-smoothing: antialiased;
+}
+.mono {
+  font-family: ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  font-variant-numeric: tabular-nums;
+}
+@font-face {
+  font-family: 'PingFang SC';
+  src: local('PingFang SC'), local('PingFangSC-Regular');
+}
+@font-face {
+  font-family: 'Microsoft YaHei';
+  src: local('Microsoft YaHei'), local('MicrosoftYaHei');}
+
+/* Scene containers */
+.scene {
+  position:absolute; top:0; left:0;
+  width:1920px; height:1080px;
+  overflow:hidden;
+  background: var(--hud-canvas);
+}
+#scene0 { z-index:1; }
+#scene1 { z-index:2; opacity:0; }
+#scene2 { z-index:3; opacity:0; }
+#scene3 { z-index:4; opacity:0; }
+#scene4 { z-index:5; opacity:0; }
+#scene5 { z-index:6; opacity:0; }
+#scene6 { z-index:7; opacity:0; }
+#scene7 { z-index:8; opacity:0; }
+#scene8 { z-index:9; opacity:0; }
+#scene9 { z-index:10; opacity:0; }
+#scene10 { z-index:11; opacity:0; }
+
+.scene-content {
+  display:flex; flex-direction:column;
+  width:100%; height:100%;
+  padding: 80px 100px;
+  gap: 32px;
+  box-sizing: border-box;
+}
+.scene-content.center {
+  justify-content: center;
+  align-items: center;
+}
+
+/* Background decorations */
+.bg-glow {
+  position:absolute; border-radius:50%;
+  filter:blur(120px); pointer-events:none;
+}
+.bg-glow-accent { background: var(--hud-accent-glow); }
+.bg-glow-gold { background: var(--hud-gold-glow); }
+
+.bg-grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(203,162,88,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(203,162,88,0.04) 1px,transparent 1px);
+  background-size:80px 80px;
+  pointer-events:none;
+}
+
+.bg-line-h {
+  position:absolute; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,var(--hud-gold-border),transparent);
+  pointer-events:none;
+}
+.bg-line-v {
+  position:absolute; top:0; bottom:0; width:1px;
+  background: linear-gradient(180deg,transparent,var(--hud-gold-border),transparent);
+  pointer-events:none;
+}
+
+.bg-ghost-text {
+  position:absolute;
+  font-size:180px; font-weight:900;
+  color:rgba(255,255,255,0.03);
+  pointer-events:none; white-space:nowrap;
+  letter-spacing:-0.04em;
+}
+
+/* Card styles */
+.glass-card {
+  background: var(--hud-surface-glass);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  border-radius:var(--radius-md);
+  border:1px solid var(--hud-gold-border);
+  position:relative;
+}
+.glass-card::after {
+  content:'';
+  position:absolute; inset:0; border-radius:var(--radius-md);
+  background:linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%);
+  pointer-events:none;
+}
+.glass-card.premium {
+  border-color:var(--hud-gold-border-active);
+  box-shadow:0 0 40px var(--hud-gold-glow),inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.accent-pill {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 14px; border-radius:var(--radius-pill);
+  font-size:13px; font-weight:500;
+  color:var(--hud-gold-light);
+  border:1px solid var(--hud-gold-border);
+  background:rgba(203,162,88,0.08);
+}
+
+.accent-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+}
+.accent-dot.gold { background:var(--hud-gold); box-shadow:0 0 8px var(--hud-gold); }
+.accent-dot.success { background:var(--success); box-shadow:0 0 8px var(--success); }
+.accent-dot.danger { background:var(--danger); box-shadow:0 0 8px var(--danger); }
+
+.data-bar-track {
+  height:4px; border-radius:2px;
+  background:rgba(255,255,255,0.06);
+  overflow:hidden;
+}
+.data-bar-fill {
+  height:100%; border-radius:2px;
+  background:var(--accent);
+  box-shadow:0 0 12px var(--hud-accent-glow);
+  transform-origin:left;
+}
+.data-bar-fill.gold {
+  background:var(--hud-gold);
+  box-shadow:0 0 12px var(--hud-gold-glow);
+}
+.data-bar-fill.success {
+  background:var(--success);
+  box-shadow:0 0 12px var(--hud-success-glow);
+}
+.data-bar-fill.danger {
+  background:var(--danger);
+  box-shadow:0 0 12px var(--hud-danger-glow);
+}
+
+.stat-value { font-weight:600; font-variant-numeric:tabular-nums; }
+.stat-label {
+  font-size:12px; font-weight:400;
+  color:var(--hud-text-tertiary);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+
+.agent-icon {
+  width:40px; height:40px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+}
+.agent-icon.green {
+  background:rgba(0,117,74,0.18);
+  border:1px solid rgba(0,117,74,0.3);
+  color:var(--accent);
+}
+.agent-icon.gold {
+  background:rgba(203,162,88,0.12);
+  border:1px solid var(--hud-gold-border);
+  color:var(--hud-gold);
+}
+
+.code-block {
+  background:rgba(0,0,0,0.4);
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.06);
+  font-family:ui-monospace,"SF Mono","JetBrains Mono",monospace;
+  font-size:13px; line-height:1.6;
+  color:var(--hud-text-secondary);
+  overflow:hidden;
+}
+
+.model-chip {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--hud-gold-border);
+  background:rgba(30,57,50,0.35);
+  font-size:14px; font-weight:500;
+}
+.model-chip.active {
+  border-color:var(--accent);
+  background:rgba(0,117,74,0.15);
+  color:var(--accent);
+}
+
+.flow-arrow {
+  display:flex; align-items:center;
+  color:var(--hud-text-tertiary);
+  font-size:18px;
+}
+
+.doc-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 12px; border-radius:6px;
+  background:rgba(0,117,74,0.1);
+  border:1px solid rgba(0,117,74,0.2);
+  font-size:13px; color:var(--accent);
+}
+
+.flex-center { display:flex; align-items:center; justify-content:center; }
+.flex-col { display:flex; flex-direction:column; }
+.row { display:flex; gap:24px; }
+.row.wrap { flex-wrap:wrap; gap:10px; }
+</style>
+</head>
+<body>
+<div
+  id="root"
+  data-composition-id="main"
+  data-start="0"
+  data-duration="120"
+  data-width="1920"
+  data-height="1080"
+>
+
+<!-- ====== SCENE 0: INTRO ====== -->
+<div id="scene0" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:800px;height:800px;top:-200px;left:50%;margin-left:-400px;"></div>
+  <div class="bg-glow bg-glow-gold" style="width:600px;height:600px;bottom:-150px;right:-100px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-h" style="top:30%;"></div>
+  <div class="bg-line-h" style="top:70%;"></div>
+  <div class="bg-ghost-text" style="top:30px;left:-60px;">TESTBRAIN</div>
+
+  <div class="scene-content center" style="gap:40px;">
+    <div class="accent-pill" data-anim="s0-pill">
+      <span class="accent-dot"></span>
+      AI-POWERED TESTING PLATFORM
+    </div>
+    <div style="font-size:96px;font-weight:700;letter-spacing:-0.03em;text-align:center;" data-anim="s0-title">
+      Test<span style="color:var(--hud-gold);">Brain</span>
+    </div>
+    <div style="font-size:24px;font-weight:350;color:var(--hud-text-secondary);text-align:center;line-height:1.5;" data-anim="s0-sub">
+      基于大语言模型的一站式智能测试平台
+    </div>
+    <div style="width:120px;height:2px;background:linear-gradient(90deg,transparent,var(--hud-gold),transparent);" data-anim="s0-divider"></div>
+  </div>
+</div>
+
+<!-- ====== SCENE 1: PAIN POINTS (10-22s) ====== -->
+<div id="scene1" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;top:10%;right:-100px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-v" style="left:25%;"></div>
+  <div class="bg-line-v" style="left:75%;"></div>
+
+  <div class="scene-content" style="justify-content:center;">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s1-header">
+      <span class="accent-dot danger" style="width:10px;height:10px;"></span>
+      <span style="font-size:20px;font-weight:500;color:var(--hud-text-tertiary);letter-spacing:0.08em;">行业痛点</span>
+    </div>
+    <div class="row" data-anim="s1-cards" style="flex:1;align-items:stretch;">
+      <div class="glass-card" style="flex:1;padding:36px 32px;display:flex;flex-direction:column;gap:20px;">
+        <div class="agent-icon gold" style="font-size:24px;">📋</div>
+        <div style="font-size:20px;font-weight:600;">海量需求文档</div>
+        <div style="font-size:28px;font-weight:700;color:var(--danger);">
+          <span class="mono">300+</span>
+          <span style="font-size:14px;font-weight:400;color:var(--hud-text-tertiary);margin-left:4px;">页/周</span>
+        </div>
+        <div style="font-size:15px;color:var(--hud-text-secondary);line-height:1.6;">测试团队每天面对海量需求文档，手工编写用例耗时耗力</div>
+        <div class="data-bar-track" style="margin-top:auto;">
+          <div class="data-bar-fill danger" style="width:85%;"></div>
+        </div>
+        <div class="stat-label">时间消耗指数 · 85%</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:36px 32px;display:flex;flex-direction:column;gap:20px;">
+        <div class="agent-icon gold" style="font-size:24px;">🔍</div>
+        <div style="font-size:20px;font-weight:600;">遗漏风险高</div>
+        <div style="font-size:28px;font-weight:700;color:var(--warn);">
+          <span class="mono">37%</span>
+          <span style="font-size:14px;font-weight:400;color:var(--hud-text-tertiary);margin-left:4px;">遗漏率</span>
+        </div>
+        <div style="font-size:15px;color:var(--hud-text-secondary);line-height:1.6;">评审靠人工逐条过，遗漏风险高，质量难以保障</div>
+        <div class="data-bar-track" style="margin-top:auto;">
+          <div class="data-bar-fill" style="width:37%;background:var(--warn);box-shadow:0 0 12px rgba(251,188,5,0.3);"></div>
+        </div>
+        <div class="stat-label">遗漏风险指数 · 37%</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:36px 32px;display:flex;flex-direction:column;gap:20px;">
+        <div class="agent-icon gold" style="font-size:24px;">📉</div>
+        <div style="font-size:20px;font-weight:600;">经验难以复用</div>
+        <div style="font-size:28px;font-weight:700;color:var(--danger);">
+          <span class="mono">90%</span>
+          <span style="font-size:14px;font-weight:400;color:var(--hud-text-tertiary);margin-left:4px;">知识流失</span>
+        </div>
+        <div style="font-size:15px;color:var(--hud-text-secondary);line-height:1.6;">历史测试经验随人员变动流失，难以沉淀复用</div>
+        <div class="data-bar-track" style="margin-top:auto;">
+          <div class="data-bar-fill danger" style="width:90%;"></div>
+        </div>
+        <div class="stat-label">经验流失指数 · 90%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 2: FIVE AGENTS OVERVIEW (22-33s) ====== -->
+<div id="scene2" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:700px;height:700px;top:50%;left:50%;margin-left:-350px;margin-top:-350px;"></div>
+  <div class="bg-grid"></div>
+
+  <div class="scene-content" style="justify-content:center;">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s2-header">
+      <div class="accent-pill">
+        <span class="accent-dot gold"></span>核心能力
+      </div>
+      <div style="font-size:36px;font-weight:700;">五大专业 AI Agent 协同作战</div>
+    </div>
+    <div class="row" data-anim="s2-agents" style="margin-top:20px;">
+      <div class="glass-card" style="flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+        <div class="agent-icon green" style="width:56px;height:56px;font-size:28px;">📝</div>
+        <div style="font-size:16px;font-weight:600;">测试用例生成器</div>
+        <div style="font-size:12px;color:var(--hud-text-tertiary);">AI 自动生成结构化用例</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+        <div class="agent-icon green" style="width:56px;height:56px;font-size:28px;">✅</div>
+        <div style="font-size:16px;font-weight:600;">智能评审引擎</div>
+        <div style="font-size:12px;color:var(--hud-text-tertiary);">自动化评审量化打分</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+        <div class="agent-icon green" style="width:56px;height:56px;font-size:28px;">📄</div>
+        <div style="font-size:16px;font-weight:600;">PRD 需求分析</div>
+        <div style="font-size:12px;color:var(--hud-text-tertiary);">自动解析前置发现风险</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+        <div class="agent-icon green" style="width:56px;height:56px;font-size:28px;">🔌</div>
+        <div style="font-size:16px;font-weight:600;">接口用例生成</div>
+        <div style="font-size:12px;color:var(--hud-text-tertiary);">一键产出标准化用例</div>
+      </div>
+      <div class="glass-card" style="flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+        <div class="agent-icon green" style="width:56px;height:56px;font-size:28px;">☕</div>
+        <div style="font-size:16px;font-weight:600;">Java 源码分析</div>
+        <div style="font-size:12px;color:var(--hud-text-tertiary);">白盒测试不依赖资深开发</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 3: AGENT 1 - TEST CASE GENERATOR (33-44s) ====== -->
+<div id="scene3" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;bottom:-80px;left:-100px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-v" style="left:50%;"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s3-header">
+      <div class="agent-icon green" style="width:44px;height:44px;">📝</div>
+      <div>
+        <div style="font-size:11px;color:var(--hud-text-tertiary);letter-spacing:0.06em;">AGENT #1</div>
+        <div style="font-size:28px;font-weight:700;">测试用例生成器</div>
+      </div>
+      <div class="accent-pill" style="margin-left:auto;">
+        <span class="accent-dot success"></span>同步+异步双模式
+      </div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">输入需求描述</div>
+        <div class="code-block" style="padding:20px;flex:1;">
+          <div style="color:var(--hud-gold-light);">📋 用户登录模块需求</div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;">
+            <div>支持手机号+验证码登录</div>
+            <div>支持邮箱+密码登录</div>
+            <div>支持第三方OAuth登录</div>
+            <div>密码错误3次锁定账户</div>
+            <div>登录态有效期7天</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card premium" style="flex:1.2;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">AI 自动生成测试用例</div>
+        <div style="display:flex;gap:16px;">
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(0,117,74,0.06);border:1px solid rgba(0,117,74,0.1);">
+            <div class="stat-value mono" style="font-size:22px;color:var(--accent);">12</div>
+            <div class="stat-label" style="margin-top:4px;">正向场景覆盖</div>
+          </div>
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(251,188,5,0.06);border:1px solid rgba(251,188,5,0.1);">
+            <div class="stat-value mono" style="font-size:22px;color:var(--warn);">5</div>
+            <div class="stat-label" style="margin-top:4px;">边界场景覆盖</div>
+          </div>
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(200,32,20,0.06);border:1px solid rgba(200,32,20,0.1);">
+            <div class="stat-value mono" style="font-size:22px;color:var(--hud-gold);">8</div>
+            <div class="stat-label" style="margin-top:4px;">异常场景覆盖</div>
+          </div>
+        </div>
+        <div class="data-bar-track">
+          <div class="data-bar-fill success" style="width:94%;"></div>
+        </div>
+        <div class="stat-label" style="display:flex;justify-content:space-between;"><span>覆盖率</span><span class="mono" style="color:var(--success);">94%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 4: AGENT 2 - REVIEW ENGINE (44-54s) ====== -->
+<div id="scene4" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;top:-100px;right:-100px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-h" style="top:45%;"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s4-header">
+      <div class="agent-icon green" style="width:44px;height:44px;">✅</div>
+      <div>
+        <div style="font-size:11px;color:var(--hud-text-tertiary);letter-spacing:0.06em;">AGENT #2</div>
+        <div style="font-size:28px;font-weight:700;">智能评审引擎</div>
+      </div>
+      <div class="accent-pill" style="margin-left:auto;">
+        <span class="accent-dot gold"></span>自动化量化打分
+      </div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:24px;">
+        <div style="font-size:14px;font-weight:500;color:var(--hud-text-tertiary);">评审维度</div>
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:15px;">功能覆盖完整度</span><span class="mono" style="color:var(--accent);">92</span></div>
+            <div class="data-bar-track"><div class="data-bar-fill" style="width:92%;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:15px;">边界条件覆盖</span><span class="mono" style="color:var(--hud-gold);">85</span></div>
+            <div class="data-bar-track"><div class="data-bar-fill gold" style="width:85%;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:15px;">逻辑一致性</span><span class="mono" style="color:var(--success);">96</span></div>
+            <div class="data-bar-track"><div class="data-bar-fill success" style="width:96%;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:15px;">可执行性</span><span class="mono" style="color:var(--danger);">73</span></div>
+            <div class="data-bar-track"><div class="data-bar-fill danger" style="width:73%;"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card premium" style="flex:1.2;padding:32px;display:flex;flex-direction:column;gap:24px;align-items:center;justify-content:center;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">综合评审得分</div>
+        <div style="position:relative;width:200px;height:200px;">
+          <svg viewBox="0 0 200 200" style="transform:rotate(-90deg);">
+            <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+            <circle cx="100" cy="100" r="88" fill="none" stroke="var(--accent)" stroke-width="12" stroke-dasharray="553" stroke-dashoffset="76" stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div class="stat-value mono" style="font-size:56px;color:var(--accent);">86</div>
+            <div class="stat-label">综合分</div>
+          </div>
+        </div>
+        <div style="font-size:14px;color:var(--hud-text-secondary);text-align:center;line-height:1.5;">永不疲倦的评审专家<br/>为你的团队保驾护航</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 5: AGENT 3 - PRD ANALYSIS (54-64s) ====== -->
+<div id="scene5" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;bottom:-100px;right:-100px;"></div>
+  <div class="bg-grid"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s5-header">
+      <div class="agent-icon green" style="width:44px;height:44px;">📄</div>
+      <div>
+        <div style="font-size:11px;color:var(--hud-text-tertiary);letter-spacing:0.06em;">AGENT #3</div>
+        <div style="font-size:28px;font-weight:700;">PRD 需求分析 Agent</div>
+      </div>
+      <div class="accent-pill" style="margin-left:auto;">
+        <span class="accent-dot"></span>JSON修复兜底机制
+      </div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">PRD 文档解析</div>
+        <div class="code-block" style="padding:20px;flex:1;">
+          <div style="color:var(--hud-gold-light);">📋 product-prd-v2.3.pdf</div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;">
+            <div><span style="color:var(--accent);">✓</span> 模块识别: 7个功能模块</div>
+            <div><span style="color:var(--accent);">✓</span> 测试点提炼: 42个关键测试点</div>
+            <div><span style="color:var(--accent);">✓</span> 场景构建: 18个业务场景</div>
+            <div><span style="color:var(--hud-gold);">⚡</span> JSON修复: 自动纠偏3处格式异常</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card premium" style="flex:1.2;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">需求评审阶段前置风险发现</div>
+        <div class="row">
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(200,32,20,0.08);border:1px solid rgba(200,32,20,0.15);">
+            <div class="stat-value mono" style="font-size:26px;color:var(--danger);">3</div>
+            <div class="stat-label" style="margin-top:4px;">逻辑矛盾</div>
+          </div>
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(251,188,5,0.08);border:1px solid rgba(251,188,5,0.15);">
+            <div class="stat-value mono" style="font-size:26px;color:var(--warn);">7</div>
+            <div class="stat-label" style="margin-top:4px;">边界遗漏</div>
+          </div>
+          <div style="flex:1;padding:20px;border-radius:8px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.15);">
+            <div class="stat-value mono" style="font-size:26px;color:var(--success);">12</div>
+            <div class="stat-label" style="margin-top:4px;">已规避风险</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 6: AGENT 4 - API TEST GEN (64-74s) ====== -->
+<div id="scene6" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;top:-100px;left:-100px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-v" style="left:50%;"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s6-header">
+      <div class="agent-icon green" style="width:44px;height:44px;">🔌</div>
+      <div>
+        <div style="font-size:11px;color:var(--hud-text-tertiary);letter-spacing:0.06em;">AGENT #4</div>
+        <div style="font-size:28px;font-weight:700;">接口用例生成 Agent</div>
+      </div>
+      <div class="accent-pill" style="margin-left:auto;">
+        <span class="accent-dot success"></span>一键产出标准化用例
+      </div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">接口描述输入</div>
+        <div class="code-block" style="padding:20px;font-size:14px;">
+          <div><span style="color:var(--hud-gold-light);">POST</span> /api/v1/user/login</div>
+          <div style="margin-top:8px;">Request: { username, password }</div>
+          <div>Response: { token, user }</div>
+        </div>
+        <div style="font-size:12px;color:var(--hud-text-secondary);line-height:1.6;">从接口描述中自动提取参数、响应结构和约束条件</div>
+      </div>
+      <div class="flow-arrow" style="align-self:center;font-size:40px;">→</div>
+      <div class="glass-card premium" style="flex:1.5;padding:32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">AI 生成的标准化测试用例</div>
+        <div class="code-block" style="padding:18px;font-size:13px;">
+          <div><span style="color:var(--accent);">TC-001</span> 正常登录 → <span style="color:var(--success);">200 OK</span></div>
+          <div><span style="color:var(--accent);">TC-002</span> 密码错误 → <span style="color:var(--danger);">401 Unauthorized</span></div>
+          <div><span style="color:var(--accent);">TC-003</span> 空用户名 → <span style="color:var(--warn);">400 Bad Request</span></div>
+          <div><span style="color:var(--accent);">TC-004</span> SQL注入 → <span style="color:var(--danger);">403 Forbidden</span></div>
+          <div><span style="color:var(--accent);">TC-005</span> 超长密码 → <span style="color:var(--warn);">400 Bad Request</span></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:auto;">
+          <div class="stat-value mono" style="font-size:20px;color:var(--success);">5</div>
+          <div class="stat-label">用例数</div>
+          <div class="stat-value mono" style="font-size:20px;color:var(--accent);margin-left:24px;">100%</div>
+          <div class="stat-label">参数覆盖</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 7: AGENT 5 - JAVA ANALYSIS (74-84s) ====== -->
+<div id="scene7" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:500px;height:500px;top:-100px;right:-100px;"></div>
+  <div class="bg-grid"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s7-header">
+      <div class="agent-icon green" style="width:44px;height:44px;">☕</div>
+      <div>
+        <div style="font-size:11px;color:var(--hud-text-tertiary);letter-spacing:0.06em;">AGENT #5</div>
+        <div style="font-size:28px;font-weight:700;">Java 源码分析 Agent</div>
+      </div>
+      <div class="accent-pill" style="margin-left:auto;">
+        <span class="accent-dot"></span>白盒测试不依赖资深开发
+      </div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">读取代码并梳理潜在测试点</div>
+        <div class="code-block" style="padding:20px;flex:1;font-size:13px;">
+          <div><span style="color:var(--hud-gold-light);">OrderService.java</span></div>
+          <div style="margin-top:8px;line-height:1.8;">
+            <div><span style="color:var(--accent);">class</span> OrderService {</div>
+            <div style="padding-left:16px;"><span style="color:var(--hud-gold);">createOrder</span>(OrderDto dto) {</div>
+            <div style="padding-left:32px;">validateInventory();</div>
+            <div style="padding-left:32px;">calculatePrice();</div>
+            <div style="padding-left:32px;">processPayment();</div>
+            <div style="padding-left:16px;">}</div>
+            <div>}</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card premium" style="flex:1.2;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">潜在测试点分析</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="padding:14px;border-radius:6px;background:rgba(0,117,74,0.04);border:1px solid rgba(0,117,74,0.08);"><span class="mono" style="font-size:12px;color:var(--accent);">01</span> <span style="font-size:14px;">库存不足时订单创建行为</span></div>
+          <div style="padding:14px;border-radius:6px;background:rgba(0,117,74,0.04);border:1px solid rgba(0,117,74,0.08);"><span class="mono" style="font-size:12px;color:var(--accent);">02</span> <span style="font-size:14px;">并发下单时的幂等性验证</span></div>
+          <div style="padding:14px;border-radius:6px;background:rgba(0,117,74,0.04);border:1px solid rgba(0,117,74,0.08);"><span class="mono" style="font-size:12px;color:var(--accent);">03</span> <span style="font-size:14px;">支付超时订单状态回滚</span></div>
+          <div style="padding:14px;border-radius:6px;background:rgba(0,117,74,0.04);border:1px solid rgba(0,117,74,0.08);"><span class="mono" style="font-size:12px;color:var(--accent);">04</span> <span style="font-size:14px;">价格计算精度边界（小数位）</span></div>
+          <div style="padding:14px;border-radius:6px;background:rgba(0,117,74,0.04);border:1px solid rgba(0,117,74,0.08);"><span class="mono" style="font-size:12px;color:var(--accent);">05</span> <span style="font-size:14px;">非法 DTO 参数校验覆盖</span></div>
+        </div>
+        <div style="display:flex;gap:24px;margin-top:auto;">
+          <div style="text-align:center;"><div class="stat-value mono" style="font-size:20px;color:var(--accent);">5</div><div class="stat-label">测试点</div></div>
+          <div style="text-align:center;"><div class="stat-value mono" style="font-size:20px;color:var(--hud-gold);">3</div><div class="stat-label">高风险点</div></div>
+          <div style="text-align:center;"><div class="stat-value mono" style="font-size:20px;color:var(--success);">100%</div><div class="stat-label">方法覆盖</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 8: MULTI-MODEL (84-95s) ====== -->
+<div id="scene8" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:600px;height:600px;top:-100px;right:-150px;"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-line-h" style="top:30%;"></div>
+  <div class="bg-line-h" style="top:70%;"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s8-header">
+      <div class="accent-pill">
+        <span class="accent-dot gold"></span>核心优势
+      </div>
+      <div style="font-size:36px;font-weight:700;">多模型灵活接入与智能降级容错</div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">支持主流大模型</div>
+        <div class="row wrap">
+          <div class="model-chip active"><span class="accent-dot success"></span>DeepSeek</div>
+          <div class="model-chip"><span class="accent-dot"></span>Qwen</div>
+          <div class="model-chip"><span class="accent-dot"></span>GPT-4o</div>
+          <div class="model-chip"><span class="accent-dot"></span>Claude</div>
+        </div>
+        <div style="font-size:13px;color:var(--hud-text-secondary);margin-top:auto;">每个 Agent 可独立配置最优模型与参数</div>
+      </div>
+      <div class="flow-arrow" style="align-self:center;font-size:40px;">→</div>
+      <div class="glass-card premium" style="flex:1.5;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">Provider 优先级降级机制</div>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;">
+          <div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:8px 8px 0 0;background:rgba(0,117,74,0.1);border:1px solid rgba(0,117,74,0.2);border-bottom:none;">
+            <span class="accent-dot success"></span><span>P0 · DeepSeek</span>
+            <span class="mono" style="margin-left:auto;font-size:12px;color:var(--success);">200ms ✓</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:16px;background:rgba(251,188,5,0.06);border:1px solid rgba(251,188,5,0.12);border-bottom:none;">
+            <span class="accent-dot" style="background:var(--warn);box-shadow:0 0 8px var(--warn);"></span><span>P1 · Qwen</span>
+            <span class="mono" style="margin-left:auto;font-size:12px;color:var(--warn);">待命中</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:0 0 8px 8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
+            <span class="accent-dot" style="background:var(--hud-text-tertiary);box-shadow:none;"></span><span>P2 · GPT-4o</span>
+            <span class="mono" style="margin-left:auto;font-size:12px;color:var(--hud-text-tertiary);">待命中</span>
+          </div>
+        </div>
+        <div style="padding:14px 18px;border-radius:8px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.1);">
+          <div style="font-size:13px;color:var(--success);">✓ 当首选模型调用失败，自动无缝切换下一个可用服务</div>
+          <div style="font-size:12px;color:var(--hud-text-secondary);margin-top:4px;">整个过程对用户完全透明，确保关键业务零中断</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:40px;margin-top:auto;">
+      <div style="text-align:center;"><div class="stat-value mono" style="font-size:24px;color:var(--success);">99.97%</div><div class="stat-label">服务可用性</div></div>
+      <div style="text-align:center;"><div class="stat-value mono" style="font-size:24px;color:var(--accent);">&lt;50ms</div><div class="stat-label">故障切换延迟</div></div>
+      <div style="text-align:center;"><div class="stat-value mono" style="font-size:24px;color:var(--hud-gold);">4</div><div class="stat-label">接入模型数</div></div>
+      <div style="text-align:center;"><div class="stat-value mono" style="font-size:24px;color:var(--hud-text);">100%</div><div class="stat-label">对用户透明</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 9: VECTOR KB (95-106s) ====== -->
+<div id="scene9" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:600px;height:600px;bottom:-150px;right:-150px;"></div>
+  <div class="bg-grid"></div>
+
+  <div class="scene-content">
+    <div style="display:flex;align-items:center;gap:16px;" data-anim="s9-header">
+      <div class="accent-pill">
+        <span class="accent-dot gold"></span>核心优势
+      </div>
+      <div style="font-size:36px;font-weight:700;">向量知识库 · 让经验持续增值</div>
+    </div>
+    <div class="row" style="flex:1;">
+      <div class="glass-card" style="flex:1;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--hud-text-tertiary);">多格式文档一键入库</div>
+        <div class="row wrap">
+          <div class="doc-chip">📄 Word 文档</div>
+          <div class="doc-chip">📑 PDF 报告</div>
+          <div class="doc-chip">📊 Excel 表格</div>
+          <div class="doc-chip">📝 Markdown</div>
+          <div class="doc-chip">💬 文本记录</div>
+          <div class="doc-chip">🔗 API文档</div>
+        </div>
+        <div style="margin-top:12px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div class="agent-icon gold" style="width:40px;height:40px;font-size:18px;">🧠</div>
+            <div>
+              <div style="font-size:14px;font-weight:500;">Milvus 向量数据库</div>
+              <div style="font-size:12px;color:var(--hud-text-tertiary);">高性能语义检索引擎</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="agent-icon gold" style="width:40px;height:40px;font-size:18px;">🔤</div>
+            <div>
+              <div style="font-size:14px;font-weight:500;">BGEM3 嵌入模型</div>
+              <div style="font-size:12px;color:var(--hud-text-tertiary);">多语言语义向量化</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card premium" style="flex:1.5;padding:32px;display:flex;flex-direction:column;gap:20px;">
+        <div style="font-size:14px;color:var(--accent);">语义检索 · 智能引用</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="padding:18px;border-radius:8px;background:rgba(0,117,74,0.06);border:1px solid rgba(0,117,74,0.1);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--accent);">🔍 相似度 94%</span>
+              <span style="font-size:12px;color:var(--hud-text-tertiary);">用户登录模块 · 历史用例</span>
+            </div>
+            <div style="font-size:14px;color:var(--hud-text-secondary);line-height:1.5;">
+              检索到 8 条相似测试用例，覆盖密码加密、会话管理、并发登录场景
+            </div>
+          </div>
+          <div style="padding:18px;border-radius:8px;background:rgba(203,162,88,0.05);border:1px solid rgba(203,162,88,0.1);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--hud-gold);">📋 相似度 87%</span>
+              <span style="font-size:12px;color:var(--hud-text-tertiary);">支付模块 · 测试报告</span>
+            </div>
+            <div style="font-size:14px;color:var(--hud-text-secondary);line-height:1.5;">
+              提取历史缺陷模式：金额精度丢失、超时重试、回调幂等性
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px;border-radius:8px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.1);text-align:center;margin-top:auto;">
+          <span style="font-size:14px;color:var(--success);">知识复用 — 每一份文档都在持续增值</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCENE 10: CLOSING (106-120s) ====== -->
+<div id="scene10" class="scene">
+  <div class="bg-glow bg-glow-accent" style="width:1000px;height:1000px;top:50%;left:50%;margin-left:-500px;margin-top:-500px;"></div>
+  <div class="bg-ghost-text" style="top:20px;right:-60px;">TESTBRAIN</div>
+  <div class="bg-line-h" style="top:50%;"></div>
+
+  <div class="scene-content center" style="gap:40px;">
+    <div class="accent-pill" data-anim="s10-pill">
+      <span class="accent-dot gold"></span>AI 合伙人
+    </div>
+    <div style="font-size:52px;font-weight:700;text-align:center;line-height:1.3;" data-anim="s10-title">
+      Test<span style="color:var(--hud-gold);">Brain</span> 不只是一个工具<br/>
+      <span style="font-size:38px;font-weight:400;color:var(--hud-text-secondary);">它是测试团队的 AI 合伙人</span>
+    </div>
+    <div style="display:flex;gap:32px;" data-anim="s10-flow">
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div class="agent-icon green" style="width:64px;height:64px;font-size:28px;">📋</div>
+        <div style="font-size:16px;font-weight:500;">需求分析</div>
+      </div>
+      <div class="flow-arrow" style="align-self:center;">→</div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div class="agent-icon green" style="width:64px;height:64px;font-size:28px;">📝</div>
+        <div style="font-size:16px;font-weight:500;">用例产出</div>
+      </div>
+      <div class="flow-arrow" style="align-self:center;">→</div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div class="agent-icon green" style="width:64px;height:64px;font-size:28px;">✅</div>
+        <div style="font-size:16px;font-weight:500;">评审把关</div>
+      </div>
+      <div class="flow-arrow" style="align-self:center;">→</div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div class="agent-icon green" style="width:64px;height:64px;font-size:28px;">🧠</div>
+        <div style="font-size:16px;font-weight:500;">知识沉淀</div>
+      </div>
+    </div>
+    <div style="width:120px;height:2px;background:linear-gradient(90deg,transparent,var(--hud-gold),transparent);" data-anim="s10-divider"></div>
+    <div style="font-size:20px;font-weight:450;color:var(--hud-text-secondary);text-align:center;line-height:1.6;" data-anim="s10-cta">
+      降本增效，把时间还给创造性工作，把质量牢牢守住
+    </div>
+    <div style="font-size:18px;color:var(--hud-gold);text-align:center;" data-anim="s10-thanks">
+      感谢各位的关注，欢迎会后交流体验！
+    </div>
+  </div>
+</div>
+  <audio id="narration" src="narration.wav" data-start="0" data-duration="118.7" data-track-index="99" data-volume="1"></audio>
+
+</div>
+
+<script>
+(function() {
+  window.__timelines = window.__timelines || {};
+  var tl = gsap.timeline({ paused: true });
+  var totalDuration = 120;
+  var TRANS = 0.4;
+  var TRANS_EASE = 'power3.inOut';
+
+  // Scene start times (seconds)
+  var T = [0, 10, 22, 33, 44, 54, 64, 74, 84, 95, 106];
+  var SCENES = 11;
+
+  // ====== SCENE 0: INTRO (0-10s) ======
+  tl.from('[data-anim="s0-pill"]', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' }, T[0] + 0.3);
+  tl.from('[data-anim="s0-title"]', { opacity: 0, y: 40, duration: 0.7, ease: 'power3.out' }, T[0] + 0.6);
+  tl.from('[data-anim="s0-sub"]', { opacity: 0, y: 20, duration: 0.6, ease: 'power2.out' }, T[0] + 1.0);
+  tl.from('[data-anim="s0-divider"]', { scaleX: 0, duration: 0.6, ease: 'power2.out', transformOrigin: 'center' }, T[0] + 1.2);
+
+  // ====== SCENE 1: PAIN POINTS (10-22s) ======
+  tl.from('[data-anim="s1-header"]', { opacity: 0, x: -30, duration: 0.4, ease: 'expo.out' }, T[1] + 0.3);
+  tl.from('[data-anim="s1-cards"] > *', { opacity: 0, y: 40, duration: 0.5, ease: 'power3.out', stagger: 0.15 }, T[1] + 0.5);
+  tl.from('#scene1 .data-bar-fill', { scaleX: 0, duration: 0.8, ease: 'power3.inOut', stagger: 0.1 }, T[1] + 1.0);
+
+  // ====== SCENE 2: FIVE AGENTS (22-33s) ======
+  tl.from('[data-anim="s2-header"]', { opacity: 0, y: 30, duration: 0.5, ease: 'power2.out' }, T[2] + 0.3);
+  tl.from('[data-anim="s2-agents"] > *', { opacity: 0, y: 50, scale: 0.9, duration: 0.5, ease: 'back.out(1.4)', stagger: 0.12 }, T[2] + 0.6);
+
+  // ====== SCENES 3-7: AGENT DETAILS ======
+  for (var i = 3; i <= 7; i++) {
+    tl.from('[data-anim="s' + i + '-header"]', { opacity: 0, x: -30, duration: 0.4, ease: 'expo.out' }, T[i] + 0.3);
+    tl.from('#scene' + i + ' .glass-card', { opacity: 0, y: 30, duration: 0.5, ease: 'power3.out', stagger: 0.12 }, T[i] + 0.5);
+    tl.from('#scene' + i + ' .flow-arrow', { opacity: 0, scale: 0.8, duration: 0.3, ease: 'power2.out' }, T[i] + 0.7);
+    tl.from('#scene' + i + ' .data-bar-fill', { scaleX: 0, duration: 0.8, ease: 'power3.inOut', stagger: 0.1 }, T[i] + 1.0);
+  }
+
+  // ====== SCENE 8: MULTI-MODEL (84-95s) ======
+  tl.from('[data-anim="s8-header"]', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' }, T[8] + 0.3);
+  tl.from('#scene8 .glass-card', { opacity: 0, y: 30, duration: 0.5, ease: 'power3.out', stagger: 0.15 }, T[8] + 0.5);
+  tl.from('#scene8 .flow-arrow', { opacity: 0, scale: 0.8, duration: 0.3, ease: 'power2.out' }, T[8] + 0.7);
+  tl.from('#scene8 .model-chip', { opacity: 0, x: -20, duration: 0.3, ease: 'power2.out', stagger: 0.08 }, T[8] + 0.9);
+
+  // ====== SCENE 9: VECTOR KB (95-106s) ======
+  tl.from('[data-anim="s9-header"]', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' }, T[9] + 0.3);
+  tl.from('#scene9 .glass-card', { opacity: 0, y: 30, duration: 0.5, ease: 'power3.out', stagger: 0.15 }, T[9] + 0.5);
+  tl.from('#scene9 .doc-chip', { opacity: 0, scale: 0.8, duration: 0.3, ease: 'back.out(1.4)', stagger: 0.06 }, T[9] + 0.9);
+
+  // ====== SCENE 10: CLOSING (106-120s) ======
+  tl.from('[data-anim="s10-pill"]', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' }, T[10] + 0.3);
+  tl.from('[data-anim="s10-title"]', { opacity: 0, y: 30, duration: 0.7, ease: 'power3.out' }, T[10] + 0.6);
+  tl.from('[data-anim="s10-flow"] > *', { opacity: 0, y: 20, duration: 0.4, ease: 'power2.out', stagger: 0.15 }, T[10] + 1.0);
+  tl.from('[data-anim="s10-divider"]', { scaleX: 0, duration: 0.5, ease: 'power2.out', transformOrigin: 'center' }, T[10] + 1.5);
+  tl.from('[data-anim="s10-cta"]', { opacity: 0, y: 15, duration: 0.5, ease: 'power2.out' }, T[10] + 1.8);
+  tl.from('[data-anim="s10-thanks"]', { opacity: 0, duration: 0.5, ease: 'power2.out' }, T[10] + 2.0);
+  // Final scene exit: fade to black
+  tl.to('#scene10', { opacity: 0, duration: 0.6, ease: 'power2.in' }, totalDuration - 0.8);
+  tl.set('#scene10', { visibility: 'hidden' }, totalDuration - 0.2);
+
+  // ====== SCENE TRANSITIONS: PUSH SLIDE ======
+  for (var j = 0; j < SCENES - 1; j++) {
+    var transStart = T[j + 1] - TRANS;
+    tl.to('#scene' + j, { x: -1920, duration: TRANS, ease: TRANS_EASE }, transStart);
+    tl.fromTo('#scene' + (j + 1),
+      { x: 1920, opacity: 1 },
+      { x: 0, duration: TRANS, ease: TRANS_EASE },
+      transStart
+    );
+    // Clean up old scene after transition
+    tl.set('#scene' + j, { x: 0, opacity: 0 }, T[j + 1]);
+  }
+
+  // ====== AMBIENT BG ANIMATIONS ======
+  document.querySelectorAll('.bg-glow').forEach(function(el, i) {
+    var offsets = [-2, 2.5, -1.5, 3, -2.5, 1.5, 2, -3, -1, 2];
+    var scales = [0.985, 1.015, 0.99, 1.02, 0.98, 1.01, 0.995, 1.018, 0.988, 1.005];
+    var bgGlowCycle = 5.2;
+    tl.to(el, {
+      y: offsets[i % offsets.length],
+      scale: scales[i % scales.length],
+      duration: bgGlowCycle,
+      repeat: Math.floor(totalDuration / bgGlowCycle) - 1,
+      yoyo: true,
+      ease: 'sine.inOut',
+    }, 0);
+  });
+
+  document.querySelectorAll('.bg-ghost-text').forEach(function(el, i) {
+    var gx = [-15, 18, -10, 20, -18];
+    var gy = [-8, 6, 10, -5, 9];
+    var ghostCycle = 10;
+    tl.to(el, {
+      x: gx[i % gx.length],
+      y: gy[i % gy.length],
+      duration: ghostCycle,
+      repeat: Math.floor(totalDuration / ghostCycle) - 1,
+      yoyo: true,
+      ease: 'sine.inOut',
+    }, 0);
+  });
+
+  window.__timelines['main'] = tl;
+})();
+</script>
+</body>
+</html>

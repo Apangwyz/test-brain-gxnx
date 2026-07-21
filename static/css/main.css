@@ -1,5 +1,5 @@
 /* ============================================
-   TestBrain Design System — Dark Tech Minimal
+   TestBrain Design System — Light Minimal
    ============================================ */
 
 /* --- Inter & JetBrains Mono --- */
@@ -7,31 +7,31 @@
 
 /* --- Design Tokens --- */
 :root {
-  --bg-primary: #0b0b12;
-  --bg-secondary: #12121c;
-  --bg-tertiary: #1a1a28;
-  --bg-hover: #1f1f30;
-  --bg-active: #22223a;
-  --border-color: #22223a;
-  --border-light: #2a2a42;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f0f1f3;
+  --bg-hover: #e9ecef;
+  --bg-active: #dee2e6;
+  --border-color: #e2e5ea;
+  --border-light: #eef0f3;
 
-  --text-primary: #e8e8f0;
-  --text-secondary: #9090a8;
-  --text-tertiary: #60607a;
-  --text-placeholder: #50506a;
-  --text-inverse: #0b0b12;
+  --text-primary: #1a1a2e;
+  --text-secondary: #5a6a7d;
+  --text-tertiary: #8a9aa8;
+  --text-placeholder: #aab5c0;
+  --text-inverse: #ffffff;
 
   --accent: #3b82f6;
   --accent-hover: #2563eb;
-  --accent-muted: rgba(59, 130, 246, 0.12);
+  --accent-muted: rgba(59, 130, 246, 0.08);
   --accent-glow: rgba(59, 130, 246, 0.25);
 
   --success: #22c55e;
-  --success-muted: rgba(34, 197, 94, 0.12);
+  --success-muted: rgba(34, 197, 94, 0.08);
   --warning: #f59e0b;
-  --warning-muted: rgba(245, 158, 11, 0.12);
+  --warning-muted: rgba(245, 158, 11, 0.08);
   --danger: #ef4444;
-  --danger-muted: rgba(239, 68, 68, 0.12);
+  --danger-muted: rgba(239, 68, 68, 0.08);
   --info: #06b6d4;
 
   --radius-sm: 6px;
@@ -39,10 +39,10 @@
   --radius-lg: 12px;
   --radius-xl: 20px;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.2);
 
   --font-sans: "Inter", -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Consolas", monospace;
@@ -70,14 +70,14 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: #f0f1f3;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: #d0d5dd;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: #b0b8c4;
 }
 
 html {
@@ -272,7 +272,7 @@ body.sidebar-hovered .main-content {
 
 /* --- Card --- */
 .card {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -303,7 +303,7 @@ body.sidebar-hovered .main-content {
 
 /* --- Stat Cards --- */
 .stat-card {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 20px;
@@ -567,8 +567,8 @@ label, .form-label {
   color: var(--info);
 }
 .badge-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  background: #e9ecef;
+  color: #5a6a7d;
 }
 
 /* --- Alerts --- */
@@ -672,7 +672,7 @@ label, .form-label {
 
 /* --- Modals --- */
 .modal-content {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -762,7 +762,7 @@ label, .form-label {
 
 /* --- Dropdown --- */
 .dropdown-menu {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -822,7 +822,7 @@ label, .form-label {
 }
 .toast.warning {
   background: var(--warning);
-  color: #1a1a1a;
+  color: #ffffff;
 }
 .toast.info {
   background: var(--info);
@@ -931,7 +931,7 @@ label, .form-label {
 
 /* --- Bootstrap-Select Dark Overrides --- */
 .bootstrap-select .dropdown-toggle {
-  background: var(--bg-tertiary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
   border-radius: var(--radius-sm) !important;
@@ -944,7 +944,7 @@ label, .form-label {
   box-shadow: 0 0 0 2px var(--accent-muted) !important;
 }
 .bootstrap-select .dropdown-menu {
-  background: var(--bg-secondary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: var(--shadow-md) !important;
 }
@@ -987,7 +987,7 @@ label, .form-label {
   color: var(--text-primary) !important;
 }
 .bs-searchbox .form-control {
-  background: var(--bg-tertiary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
 }
@@ -995,7 +995,7 @@ label, .form-label {
 /* --- Select2 Dark Overrides --- */
 .select2-container--default .select2-selection--single,
 .select2-container--default .select2-selection--multiple {
-  background: var(--bg-tertiary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   border-radius: var(--radius-sm) !important;
   min-height: 40px;
@@ -1009,7 +1009,7 @@ label, .form-label {
   height: 38px;
 }
 .select2-dropdown {
-  background: var(--bg-secondary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: var(--shadow-md) !important;
 }
@@ -1021,7 +1021,7 @@ label, .form-label {
   background: var(--bg-hover) !important;
 }
 .select2-container--default .select2-search--dropdown .select2-search__field {
-  background: var(--bg-tertiary) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
 }

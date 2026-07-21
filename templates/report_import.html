@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}导入测试报告{% endblock %}
+{% block extra_css %}
+<style>
+.upload-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 60px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--bg-secondary);
+}
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+}
+.upload-zone .upload-icon {
+    font-size: 48px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+}
+.upload-zone:hover .upload-icon,
+.upload-zone.dragover .upload-icon {
+    color: var(--accent);
+}
+.upload-zone p {
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.upload-zone .formats {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+}
+#fileInput { display: none; }
+#import-status {
+    display: none;
+    margin-top: 24px;
+}
+#import-status .status-icon {
+    font-size: 32px;
+    margin-right: 12px;
+}
+#import-status .progress {
+    height: 8px;
+    margin-top: 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h4>📥 导入测试报告</h4>
+    <p>上传 JUnit XML 或 JSON 格式的测试报告文件，系统将自动解析并进行 AI 智能分析</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <!-- 上传区域 -->
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📂</div>
+            <p><strong>点击选择文件</strong> 或将文件拖拽到此处</p>
+            <p class="formats">支持格式: .xml (JUnit)  /  .json</p>
+            <input type="file" id="fileInput" accept=".xml,.json">
+        </div>
+
+        <!-- 状态 -->
+        <div id="import-status">
+            <div class="d-flex align-items-center">
+                <span class="status-icon" id="statusIcon">⏳</span>
+                <div>
+                    <strong id="statusTitle">解析中...</strong>
+                    <small class="text-muted d-block" id="statusDetail"></small>
+                </div>
+            </div>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     id="statusProgress" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 结果 -->
+        <div id="import-result" style="display:none; margin-top: 24px;">
+            <div class="alert" id="resultAlert">
+                <span id="resultMessage"></span>
+            </div>
+            <div style="margin-top: 12px;">
+                <a href="/reports/" class="btn btn-secondary">← 返回报告列表</a>
+                <a href="#" class="btn btn-primary" id="viewReportBtn" style="display:none;">查看报告详情 →</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const statusEl = document.getElementById('import-status');
+const statusIcon = document.getElementById('statusIcon');
+const statusTitle = document.getElementById('statusTitle');
+const statusDetail = document.getElementById('statusDetail');
+const statusProgress = document.getElementById('statusProgress');
+const resultEl = document.getElementById('import-result');
+const resultAlert = document.getElementById('resultAlert');
+const resultMessage = document.getElementById('resultMessage');
+const viewReportBtn = document.getElementById('viewReportBtn');
+
+// 点击上传区域
+uploadZone.addEventListener('click', () => fileInput.click());
+
+// 选择文件
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+        uploadFile(fileInput.files[0]);
+    }
+});
+
+// 拖拽支持
+uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+});
+uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('dragover');
+});
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        uploadFile(e.dataTransfer.files[0]);
+    }
+});
+
+function uploadFile(file) {
+    // 验证扩展名
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['xml', 'json'].includes(ext)) {
+        showResult('danger', '不支持的文件类型。请上传 .xml (JUnit) 或 .json 文件。');
+        return;
+    }
+    if (file.size === 0) {
+        showResult('danger', '文件内容为空。');
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        showResult('danger', '文件大小超过 10MB 限制。');
+        return;
+    }
+
+    // 显示进度
+    uploadZone.style.display = 'none';
+    resultEl.style.display = 'none';
+    statusEl.style.display = 'block';
+    setStatus('⏳', '解析中...', `正在解析 ${file.name}`, '30%');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setTimeout(() => {
+        setStatus('🤖', 'AI 分析中...', '正在调用 LLM 进行智能分析', '65%');
+
+        $.ajax({
+            url: '/api/reports/import/',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(resp) {
+                setStatus('✅', '导入完成！', '', '100%');
+                setTimeout(() => {
+                    showResult('success',
+                        `「${resp.title}」导入成功！` +
+                        (resp.summary ? `<br><small>${resp.summary}</small>` : '')
+                    );
+                    viewReportBtn.href = '/reports/' + resp.id + '/';
+                    viewReportBtn.style.display = 'inline-block';
+                }, 500);
+            },
+            error: function(xhr) {
+                let msg = '导入失败';
+                try {
+                    const body = JSON.parse(xhr.responseText);
+                    msg = body.message || msg;
+                } catch(e) {}
+                setStatus('❌', '导入失败', '', '100%');
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                    showResult('danger', msg);
+                }, 800);
+            }
+        });
+    }, 300);
+}
+
+function setStatus(icon, title, detail, progress) {
+    statusIcon.textContent = icon;
+    statusTitle.textContent = title;
+    statusDetail.textContent = detail || '';
+    statusProgress.style.width = progress;
+}
+
+function showResult(type, message) {
+    resultEl.style.display = 'block';
+    resultAlert.className = 'alert alert-' + type;
+    resultMessage.innerHTML = message;
+}
+</script>
+{% endblock %}

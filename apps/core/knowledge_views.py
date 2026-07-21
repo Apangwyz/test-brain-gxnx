@@ -8,31 +8,37 @@ import hashlib
 from datetime import datetime
 
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from apps.utils.auth_decorators import api_key_required, session_or_apikey_auth
 from django.conf import settings
 
+from apps.utils.auth_decorators import api_key_required, session_or_apikey_auth
 from ..core.models import KnowledgeBase
 from ..knowledge.service import get_knowledgeService_instance
+from ..knowledge.milvus_helper import process_singel_file
 from apps.utils.logger_manager import get_logger
-from apps.knowledge.milvus_helper import process_singel_file
-
-
 
 
 logger = get_logger(__name__)
 knowledge_service = get_knowledgeService_instance()
 
 
+# ---------------------------------------------------------------------------
+# 页面
+# ---------------------------------------------------------------------------
+
 @login_required
 def knowledge_view(request):
-    """知识库管理页面"""
+    """知识库管理页面（含手动添加 / 文件上传 / 列表三合一）"""
     return render(request, 'knowledge.html')
 
-# @login_required 先屏蔽登录
+
+# ---------------------------------------------------------------------------
+# 手动添加
+# ---------------------------------------------------------------------------
+
 @require_http_methods(["POST"])
 @session_or_apikey_auth
 def add_knowledge(request):
@@ -41,292 +47,179 @@ def add_knowledge(request):
         data = json.loads(request.body)
         title = data.get('title')
         content = data.get('content')
-        
+
         if not title or not content:
             return JsonResponse({
-                'success': False,
-                'message': '标题和内容不能为空'
+                'success': False, 'message': '标题和内容不能为空'
             })
-        
-        # 添加到知识库
+
         knowledge_id = knowledge_service.add_knowledge(title, content)
-        
+
         return JsonResponse({
-            'success': True,
-            'message': '知识条目添加成功',
+            'success': True, 'message': '知识条目添加成功',
             'knowledge_id': knowledge_id
         })
     except Exception as e:
+        logger.error(f"添加知识条目失败: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# ---------------------------------------------------------------------------
+# 文件上传
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def upload_single_file(request):
+    """处理文件上传（迁移自旧的 /upload/ 独立页面）"""
+    if 'single_file' not in request.FILES:
+        return JsonResponse({'success': False, 'error': '未接收到文件'})
+
+    uploaded_file = request.FILES['single_file']
+    upload_dir = settings.MEDIA_ROOT
+    file_path = os.path.join(upload_dir, uploaded_file.name)
+    is_overwrite = False
+
+    if os.path.exists(file_path):
+        logger.info(f"检测到同名文件存在，将进行覆盖: {file_path}")
+        is_overwrite = True
+        try:
+            knowledge_service.vector_store.delete_by_source(file_path)
+            logger.info("成功删除旧的向量记录")
+        except Exception as e:
+            logger.error(f"删除旧向量记录失败: {str(e)}")
+            return JsonResponse({
+                'success': False, 'error': f'覆盖文件时删除旧数据失败: {str(e)}'
+            })
+        try:
+            os.remove(file_path)
+            logger.info("成功删除旧文件")
+        except Exception as e:
+            logger.error(f"删除旧文件失败: {str(e)}")
+            return JsonResponse({
+                'success': False, 'error': f'删除旧文件失败: {str(e)}'
+            })
+
+    try:
+        # 保存文件
+        os.makedirs(upload_dir, exist_ok=True)
+        with open(file_path, 'wb+') as f:
+            for chunk in uploaded_file.chunks():
+                f.write(chunk)
+        logger.info(f"文件保存成功: {file_path}")
+
+        # 解析文件内容
+        file_type = os.path.splitext(uploaded_file.name)[1]
+        chunks = process_singel_file(file_path)
+        if not chunks:
+            return JsonResponse({'success': False, 'error': '文件中无有效内容'})
+
+        text_contents = []
+        if isinstance(chunks, list):
+            for chunk in chunks:
+                if hasattr(chunk, 'text'):
+                    text_contents.append(str(chunk.text))
+                elif isinstance(chunk, str):
+                    text_contents.append(chunk)
+        else:
+            text_contents.append(str(chunks))
+
+        if not text_contents:
+            return JsonResponse({'success': False, 'error': '未能提取文件内容'})
+
+        # 生成向量并插入 Milvus
+        from apps.knowledge.embedding import create_embedder
+        embedder = create_embedder()
+        start_time = datetime.now()
+        embeddings_list = embedder.get_embeddings(text_contents)
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.info(f"向量生成完成，耗时: {elapsed:.2f} 秒，共 {len(embeddings_list)} 条")
+
+        data_to_insert = []
+        for i in range(len(text_contents)):
+            data_to_insert.append({
+                "embedding": embeddings_list[i],
+                "content": text_contents[i],
+                "metadata": '{}',
+                "source": file_path,
+                "doc_type": file_type,
+                "chunk_id": f"{hashlib.md5(os.path.basename(file_path).encode()).hexdigest()[:10]}_{i:04d}",
+                "upload_time": datetime.now().isoformat()
+            })
+
+        if knowledge_service.vector_store is None:
+            return JsonResponse({
+                'success': False,
+                'error': '知识库服务未初始化：向量数据库(Milvus)未连接'
+            })
+
+        knowledge_service.vector_store.add_data(data_to_insert)
+        logger.info(f"向 Milvus 插入 {len(data_to_insert)} 条数据完成")
+
+        # 保存到 KnowledgeBase (MySQL)
+        try:
+            kb_title = os.path.splitext(uploaded_file.name)[0]
+            KnowledgeBase.objects.create(
+                title=kb_title,
+                content="\n".join(text_contents)
+            )
+            logger.info(f"知识库条目已保存: {kb_title}")
+        except Exception as e:
+            logger.error(f"保存知识库条目失败: {e}")
+
         return JsonResponse({
-            'success': False,
-            'message': str(e)
+            'success': True,
+            'count': len(text_contents),
+            'message': f'成功{"覆盖" if is_overwrite else "导入"}文件到知识库'
         })
 
-# @login_required 先屏蔽登录
+    except Exception as e:
+        logger.error(f"处理上传文件时出错: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ---------------------------------------------------------------------------
+# 知识库列表 + 搜索 + 删除
+# ---------------------------------------------------------------------------
+
 @api_key_required
 def knowledge_list(request):
     """获取知识库列表"""
     try:
-        knowledge_items = KnowledgeBase.objects.all().order_by('-created_at')
-        
-        items = []
-        for item in knowledge_items:
-            items.append({
-                'id': item.id,
-                'title': item.title,
-                'content': item.content,
-                'created_at': item.created_at.isoformat()
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'knowledge_items': items
-        })
+        items = KnowledgeBase.objects.all().order_by('-created_at')
+        data = [{
+            'id': item.id,
+            'title': item.title,
+            'content': item.content,
+            'created_at': item.created_at.isoformat()
+        } for item in items]
+        return JsonResponse({'success': True, 'knowledge_items': data})
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e)
-        })
+        return JsonResponse({'success': False, 'message': str(e)})
 
-# @login_required 先屏蔽登录
-@require_http_methods(["POST"])
+
 @session_or_apikey_auth
+@require_http_methods(["POST"])
 def search_knowledge(request):
     """搜索知识库"""
     try:
         data = json.loads(request.body)
-        query = data.get('query')
-        
+        query = data.get('query', '')
         if not query:
-            return JsonResponse({
-                'success': False,
-                'message': '搜索关键词不能为空'
-            })
-        
-        # 搜索知识库
+            return JsonResponse({'success': False, 'message': '搜索关键词不能为空'})
+
         query_embedding = knowledge_service.embedder.get_embeddings(query)[0]
-        logger.info(f"查询文本: '{query}', 向量维度: {len(query_embedding)}, 前5个维度: {query_embedding[:5]}")
+        logger.info(f"搜索: '{query}', 向量维度: {len(query_embedding)}")
         results = knowledge_service.search_knowledge(query)
-        
-        return JsonResponse({
-            'success': True,
-            'results': results
-        })
+
+        return JsonResponse({'success': True, 'results': results})
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e)
-        })
+        return JsonResponse({'success': False, 'message': str(e)})
 
-@csrf_exempt
-def upload_single_file(request):
-    """处理文件上传的视图函数"""
-    if request.method == 'GET':
-        return render(request, 'upload.html')
-    elif request.method == 'POST':
-        if 'single_file' in request.FILES:  # 修改这里匹配前端的 name 属性
-            uploaded_file = request.FILES['single_file']  # 修改这里匹配前端的 name 属性
-            
-            # 统一使用 MEDIA_ROOT 配置
-            upload_dir = settings.MEDIA_ROOT
-            file_path = os.path.join(upload_dir, uploaded_file.name)
-            
-            # 检查文件是否存在，如果存在则覆盖
-            is_overwrite = False
-            if os.path.exists(file_path):
-                logger.info(f"检测到同名文件存在，将进行覆盖: {file_path}")
-                is_overwrite = True
-                
-                # 1. 删除向量数据库中的旧记录
-                try:
-                    knowledge_service.vector_store.delete_by_source(file_path)
-                    logger.info("成功删除旧的向量记录")
-                except Exception as e:
-                    logger.error(f"删除旧向量记录失败: {str(e)}")
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'覆盖文件时删除旧数据失败: {str(e)}'
-                    })
-                
-                # 2. 删除旧文件
-                try:
-                    os.remove(file_path)
-                    logger.info("成功删除旧文件")
-                except Exception as e:
-                    logger.error(f"删除旧文件失败: {str(e)}")
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'删除旧文件失败: {str(e)}'
-                    })
-                
-            try:
-                # 1. 接收文件
-                logger.info(f"Uploaded file: {uploaded_file}")
-                if not uploaded_file:
-                    return JsonResponse({'success': False, 'error': '未接收到文件'})
-                
-                file_categories = {
-                    "CSV": [".csv"],
-                    "E-mail": [".eml", ".msg", ".p7s"],
-                    "EPUB": [".epub"],
-                    "Excel": [".xls", ".xlsx"],
-                    "HTML": [".html"],
-                    "Image": [".bmp", ".heic", ".jpeg", ".png", ".tiff"],
-                    "Markdown": [".md"],
-                    "Org Mode": [".org"],
-                    "Open Office": [".odt"],
-                    "PDF": [".pdf"],
-                    "Plain text": [".txt"],
-                    "PowerPoint": [".ppt", ".pptx"],
-                    "reStructured Text": [".rst"],
-                    "Rich Text": [".rtf"],
-                    "TSV": [".tsv"],
-                    "Word": [".doc", ".docx"],
-                    "XML": [".xml"]
-                }
-                file_type = os.path.splitext(uploaded_file.name)[1]
-                logger.info(f"上传文件类型: {file_type}")
-                logger.info(f"上传文件名: {uploaded_file.name}")
-                
-                if not file_type:
-                    logger.error("文件没有扩展名")
-                    return JsonResponse({'success': False, 'error': '文件必须包含扩展名'})
-                
-                # 获取所有支持的文件扩展名
-                supported_extensions = [ext.lower() for exts in file_categories.values() for ext in exts]
-
-                if file_type not in supported_extensions:
-                    return JsonResponse({'success': False, 'error': '不支持的文件类型'})
-                
-                # 2. 保存文件到统一目录
-                os.makedirs(upload_dir, exist_ok=True)
-                with open(file_path, 'wb+') as f:
-                    for chunk in uploaded_file.chunks():
-                        f.write(chunk)
-                logger.info(f"文件保存成功, 文件保存路径: {file_path}")
-
-                # 3. 处理文件
-                chunks = process_singel_file(file_path)  # 获取原始数据和文本
-                if not chunks:
-                    return JsonResponse({'success': False, 'error': '文件中无有效内容'})
-
-                # 提取所有chunk.text并记录日志
-                if isinstance(chunks, list):
-                    # 直接从chunks中提取text属性
-                    text_contents = []
-                    for i, chunk in enumerate(chunks):
-                        if hasattr(chunk, 'text'):
-                            text_contents.append(str(chunk.text))
-                        else:
-                            text_contents.append(str(chunk))
-                
-                    logger.info(f"共提取了 {len(text_contents)} 个文本内容")
-                else:
-                    # 单一文本块的情况
-                    if hasattr(chunks, 'text'):
-                        text_contents = [str(chunks.text)]
-                    else:
-                        text_contents = [str(chunks)]
-                    logger.info(f"提取了单个文本内容: {text_contents[0][:100]}...")
-
-                # 检查知识库服务是否可用
-                if knowledge_service.embedder is None:
-                    logger.error("嵌入模型服务未初始化，请检查阿里云API Key配置")
-                    return JsonResponse({
-                        'success': False,
-                        'error': '嵌入模型服务未初始化，请联系管理员配置阿里云API Key'
-                    })
-
-                # 直接生成所有文本内容的向量
-                logger.info("开始生成向量")
-                start_time = datetime.now()
-
-                try:
-                    # 直接为所有文本内容生成向量
-                    all_embeddings = knowledge_service.embedder.get_embeddings(texts=text_contents, show_progress_bar=False)
-                    logger.info(f"成功生成 {len(all_embeddings)} 个向量")
-                    
-                    # 确保embeddings是列表格式
-                    embeddings_list = []
-                    for emb in all_embeddings:
-                        if hasattr(emb, 'tolist'):
-                            emb = emb.tolist()
-                        embeddings_list.append(emb)
-                    
-                    # 准备插入数据
-                    data_to_insert = []
-                    for i in range(len(text_contents)):
-                        item = {
-                            "embedding": embeddings_list[i],  # 单个embedding向量
-                            "content": text_contents[i],      # 文本内容
-                            "metadata": '{}',                 # 元数据
-                            "source": file_path,              # 来源
-                            "doc_type": file_type,            # 文档类型
-                            "chunk_id": f"{hashlib.md5(os.path.basename(file_path).encode()).hexdigest()[:10]}_{i:04d}",  # 块ID
-                            "upload_time": datetime.now().isoformat()  # 上传时间
-                        }
-                        data_to_insert.append(item)
-                    
-                    # 检查知识库服务是否可用
-                    if knowledge_service.vector_store is None:
-                        logger.error("知识库服务未初始化：向量数据库(Milvus)未连接，请检查 ENABLE_MILVUS 环境变量及 Milvus 服务状态")
-                        return JsonResponse({
-                            'success': False,
-                            'error': '知识库服务未初始化：向量数据库(Milvus)未连接，请检查 Milvus 服务状态及 ENABLE_MILVUS 配置'
-                        })
-
-                    # 插入数据到Milvus
-                    logger.info(f"开始往milvus中插入 {len(data_to_insert)} 条数据")
-                    knowledge_service.vector_store.add_data(data_to_insert)
-                    logger.info("数据插入完成")
-                    
-                    total_time = (datetime.now() - start_time).total_seconds()
-                    logger.info(f"向量生成和插入完成，总耗时: {total_time:.2f} 秒")
-                    
-                    return JsonResponse({
-                        'success': True, 
-                        'count': len(text_contents),
-                        'message': f'成功{"覆盖" if is_overwrite else "导入"}文件到知识库'
-                    })
-                    
-                except Exception as e:
-                    logger.error(f"生成或插入向量时出错: {str(e)}", exc_info=True)
-                    return JsonResponse({
-                        'success': False, 
-                        'error': str(e)
-                    })
-                
-            except Exception as e:
-                logger.error(f"处理上传文件时出错: {str(e)}", exc_info=True)
-                return JsonResponse({
-                    'success': False, 
-                    'error': str(e)
-                })
-            finally:
-                # 清理临时文件（注释掉，因为现在保存的是正式文件）
-                # if os.path.exists(file_path):
-                #     os.remove(file_path)
-                pass
-        else:
-            return JsonResponse({
-                'success': False,
-                'error': '未接收到文件'
-            })
-    
-    return JsonResponse({
-        'success': False,
-        'error': '不支持的请求方法'
-    })
-
-
-
-
-@require_http_methods(["POST"])
 
 @require_http_methods(["POST"])
 def retrieve_knowledge(request):
     """知识库检索 API"""
-    import json
     data = json.loads(request.body)
     query = data.get('query', '')
     top_k = data.get('top_k', 5)
@@ -339,14 +232,40 @@ def retrieve_knowledge(request):
 
 @require_http_methods(["GET"])
 def knowledge_list_select(request):
-    """知识库文档列表（供前端选择器用）"""
-    from ..core.models import KnowledgeBase
+    """知识库文档列表（供前端选择器用，带分页+搜索）"""
     page = int(request.GET.get('page', 1))
     search = request.GET.get('search', '')
     qs = KnowledgeBase.objects.all()
     if search:
         qs = qs.filter(title__icontains=search)
     total = qs.count()
-    items = qs.order_by('-created_at')[(page-1)*20:page*20]
+    items = qs.order_by('-created_at')[(page - 1) * 20:page * 20]
     data = [{'id': k.id, 'title': k.title, 'created_at': k.created_at.isoformat()} for k in items]
     return JsonResponse({'items': data, 'total': total, 'page': page})
+
+
+@session_or_apikey_auth
+@require_http_methods(["DELETE"])
+def delete_knowledge(request, item_id):
+    """删除知识条目（MySQL + Milvus 双删）"""
+    try:
+        item = get_object_or_404(KnowledgeBase, id=item_id)
+
+        # 尝试从 Milvus 删除对应向量
+        try:
+            # 根据标题搜索匹配的 source（文件上传产生的记录用文件路径做 source）
+            # 对于手动添加的记录，Milvus 中可能没有对应的 source 字段
+            knowledge_service.vector_store.delete_by_source(item.title)
+        except AttributeError:
+            logger.warning("vector_store 未启用或没有 delete_by_source 方法")
+        except Exception as e:
+            logger.warning(f"Milvus 删除（非关键）: {e}")
+
+        # 删除 MySQL 记录
+        item.delete()
+        logger.info(f"知识条目已删除: id={item_id}, title={item.title}")
+
+        return JsonResponse({'success': True, 'message': '知识条目已删除'})
+    except Exception as e:
+        logger.error(f"删除知识条目失败: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'message': str(e)})

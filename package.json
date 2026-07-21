@@ -1,0 +1,28 @@
+{
+  "name": "testbrain-main",
+  "version": "1.0.0",
+  "description": "> 基于大语言模型的智能测试平台，聚焦手工&接口测试用例生成、评审与知识复用、java源码分析，帮助测试团队打造高效、可扩展的“AI 测试助手”。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Apangwyz/test-brain-gxnx.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Apangwyz/test-brain-gxnx/issues"
+  },
+  "homepage": "https://github.com/Apangwyz/test-brain-gxnx#readme",
+  "dependencies": {
+    "@hyperframes/studio": "^0.7.64",
+    "hyperframes": "^0.7.64"
+  }
+}

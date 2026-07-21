@@ -4,30 +4,71 @@
 <div class="page-header">
     <h4>📊 测试报告</h4>
     <p>查看和管理测试执行报告</p>
+    <div class="btn-group">
+        <a href="/reports/import/" class="btn btn-primary">📥 导入报告</a>
+    </div>
 </div>
 
 <div class="row" id="reportList"></div>
 
+<!-- 分页 -->
+<nav id="paginationNav" class="mt-4" style="display:none;">
+  <ul class="pagination justify-content-center" style="gap:4px;">
+    <li class="page-item" id="prevPage">
+      <a class="page-link" href="#" onclick="goPage(currentPage - 1)">← 上一页</a>
+    </li>
+    <li class="page-item disabled" id="pageInfo">
+      <span class="page-link" id="pageDisplay">1 / 1</span>
+    </li>
+    <li class="page-item" id="nextPage">
+      <a class="page-link" href="#" onclick="goPage(currentPage + 1)">下一页 →</a>
+    </li>
+  </ul>
+</nav>
+{% endblock %}
+
+{% block extra_js %}
 <script>
+let currentPage = 1;
+let totalPages = 1;
+
+function loadReports(page) {
+  currentPage = page;
+  $.get('/api/reports/', { page: page, page_size: 12 }, function(resp) {
+    let html = '';
+    if (!resp.reports || resp.reports.length === 0) {
+      html = '<div class="col-12"><div class="card"><div class="card-body text-center text-muted">暂无测试报告</div></div></div>';
+      $('#paginationNav').hide();
+    } else {
+      resp.reports.forEach(function(r) {
+        const rate = r.pass_rate;
+        const color = rate >= 90 ? '#22c55e' : rate >= 70 ? '#f59e0b' : '#ef4444';
+        html += '<div class="col-md-4 mb-4"><div class="card"><div class="card-body">' +
+          '<h6>' + r.title + '</h6>' +
+          '<div style="color: ' + color + '; font-size: 24px; font-weight: 700;">' + rate + '%</div>' +
+          '<small class="text-muted">' + (r.system_name || '') + ' | ' + r.created_at + '</small>' +
+          '<div style="margin-top: 12px;"><a href="/reports/' + r.id + '/" class="btn btn-sm btn-primary">查看详情</a></div>' +
+          '</div></div></div>';
+      });
+      totalPages = resp.total_pages || 1;
+      $('#pageDisplay').text(currentPage + ' / ' + totalPages);
+      $('#prevPage').toggleClass('disabled', currentPage <= 1);
+      $('#nextPage').toggleClass('disabled', currentPage >= totalPages);
+      $('#paginationNav').show();
+    }
+    $('#reportList').html(html);
+  }).fail(function(xhr, status, error) {
+    $('#reportList').html('<div class="col-12"><div class="card"><div class="card-body text-center text-muted">加载失败：' + status + '</div></div></div>');
+  });
+}
+
+function goPage(page) {
+  if (page < 1 || page > totalPages) return;
+  loadReports(page);
+}
+
 $(document).ready(function() {
-    $.get('/api/reports/', function(resp) {
-        let html = '';
-        if (!resp.reports || resp.reports.length === 0) {
-            html = '<div class="col-12"><div class="card"><div class="card-body text-center text-muted">暂无测试报告</div></div></div>';
-        } else {
-            resp.reports.forEach(function(r) {
-                const rate = r.pass_rate;
-                const color = rate >= 90 ? '#22c55e' : rate >= 70 ? '#f59e0b' : '#ef4444';
-                html += '<div class="col-md-4 mb-4"><div class="card"><div class="card-body">' +
-                    '<h6>' + r.title + '</h6>' +
-                    '<div style="color: ' + color + '; font-size: 24px; font-weight: 700;">' + rate + '%</div>' +
-                    '<small class="text-muted">' + (r.system_name || '') + ' | ' + r.created_at + '</small>' +
-                    '<div style="margin-top: 12px;"><a href="/reports/' + r.id + '/" class="btn btn-sm btn-primary">查看详情</a></div>' +
-                    '</div></div></div>';
-            });
-        }
-        $('#reportList').html(html);
-    });
+  loadReports(1);
 });
 </script>
 {% endblock %}

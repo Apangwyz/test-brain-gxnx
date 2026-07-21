@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    @font-face {
+      font-family: "Plus Jakarta Sans";
+      src: local("Plus Jakarta Sans");
+    }
+    @font-face {
+      font-family: "JetBrains Mono";
+      src: local("JetBrains Mono");
+    }
+    @font-face {
+      font-family: "PingFang SC";
+      src: local("PingFang SC");
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0a0e17;
+    }
+    body {
+      font-family: "Plus Jakarta Sans", "PingFang SC", sans-serif;
+    }
+    .scene {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+    #scene1 { z-index: 1; background: #0a0e17; }
+    #scene2 { z-index: 2; background: #0a0e17; opacity: 0; }
+    #scene3 { z-index: 3; background: #0a0e17; opacity: 0; }
+    #scene4 { z-index: 4; background: #0a0e17; opacity: 0; }
+    #scene5 { z-index: 5; background: #0a0e17; opacity: 0; }
+    #scene6 { z-index: 6; background: #0a0e17; opacity: 0; }
+
+    /* --- Reusable --- */
+    .scene-content {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      padding: 100px 140px;
+      gap: 20px;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .section-tag {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #3b82f6;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .section-title {
+      font-size: 52px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .section-sub {
+      font-size: 20px;
+      font-weight: 300;
+      color: #8ba4c7;
+      line-height: 1.5;
+      max-width: 720px;
+    }
+
+    /* --- Background Decoratives --- */
+    .bg-grid {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px; height: 1080px;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    .bg-glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+    }
+    .bg-ghost {
+      position: absolute;
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-weight: 900;
+      color: #ffffff;
+      opacity: 0.035;
+      letter-spacing: 8px;
+      white-space: nowrap;
+    }
+    .hairline {
+      height: 1px;
+      background: rgba(59,130,246,0.25);
+      width: 100%;
+      margin: 8px 0;
+    }
+
+    /* --- Scene 1: Hero --- */
+    .hero-logo {
+      font-size: 90px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .hero-logo span {
+      color: #3b82f6;
+    }
+    .hero-tagline {
+      font-size: 22px;
+      font-weight: 300;
+      color: #8ba4c7;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+    .hero-motto {
+      font-size: 16px;
+      font-weight: 400;
+      color: rgba(59,130,246,0.6);
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      letter-spacing: 2px;
+      margin-top: auto;
+      padding-bottom: 20px;
+    }
+    .hero-divider {
+      width: 80px;
+      height: 3px;
+      background: #3b82f6;
+      border-radius: 2px;
+      margin: 12px 0;
+    }
+    .hero-accent-line {
+      position: absolute;
+      right: 140px;
+      top: 200px;
+      width: 2px;
+      height: 400px;
+      background: linear-gradient(180deg, rgba(59,130,246,0.6), rgba(59,130,246,0));
+    }
+
+    /* --- Scene 2: Multi-Agent --- */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 24px;
+      flex: 1;
+      align-content: start;
+    }
+    .agent-card {
+      background: rgba(59,130,246,0.06);
+      border: 1px solid rgba(59,130,246,0.12);
+      border-radius: 12px;
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .agent-card .name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+    .agent-card .desc {
+      font-size: 13px;
+      font-weight: 300;
+      color: #8ba4c7;
+      line-height: 1.5;
+    }
+    .agent-card .tag {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 11px;
+      color: #3b82f6;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* --- Scene 3: Knowledge Base --- */
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-top: 32px;
+    }
+    .pipeline-step {
+      flex: 1;
+      background: rgba(59,130,246,0.06);
+      border: 1px solid rgba(59,130,246,0.12);
+      border-radius: 12px;
+      padding: 28px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-height: 200px;
+      justify-content: center;
+    }
+    .pipeline-step .step-icon {
+      font-size: 36px;
+    }
+    .pipeline-step .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .pipeline-step .step-desc {
+      font-size: 14px;
+      font-weight: 300;
+      color: #8ba4c7;
+      line-height: 1.5;
+    }
+    .pipeline-arrow {
+      font-size: 28px;
+      color: #3b82f6;
+      font-weight: 300;
+      flex-shrink: 0;
+    }
+    .tech-stack {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .tech-badge {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 13px;
+      color: #3b82f6;
+      background: rgba(59,130,246,0.1);
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(59,130,246,0.15);
+    }
+
+    /* --- Scene 4: Dashboard --- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-top: 28px;
+    }
+    .stat-card {
+      background: rgba(59,130,246,0.06);
+      border: 1px solid rgba(59,130,246,0.12);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stat-card .stat-number {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 44px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card .stat-label {
+      font-size: 14px;
+      font-weight: 300;
+      color: #8ba4c7;
+    }
+    .stat-card .stat-bar {
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 6px;
+      width: 0%;
+    }
+    .stat-card.total .stat-number { color: #3b82f6; }
+    .stat-card.total .stat-bar { background: #3b82f6; }
+    .stat-card.pending .stat-number { color: #f59e0b; }
+    .stat-card.pending .stat-bar { background: #f59e0b; }
+    .stat-card.passed .stat-number { color: #22c55e; }
+    .stat-card.passed .stat-bar { background: #22c55e; }
+    .stat-card.rejected .stat-number { color: #ef4444; }
+    .stat-card.rejected .stat-bar { background: #ef4444; }
+
+    .dashboard-modules {
+      display: flex;
+      gap: 14px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .module-pill {
+      font-size: 13px;
+      color: #ffffff;
+      background: rgba(59,130,246,0.08);
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid rgba(59,130,246,0.1);
+    }
+
+    /* --- Scene 5: LLM Integration --- */
+    .provider-row {
+      display: flex;
+      gap: 24px;
+      margin-top: 24px;
+      align-items: stretch;
+    }
+    .provider-card {
+      flex: 1;
+      background: rgba(59,130,246,0.06);
+      border: 1px solid rgba(59,130,246,0.12);
+      border-radius: 12px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .provider-card .provider-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .provider-card .provider-status {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 13px;
+      color: #22c55e;
+    }
+    .provider-card .provider-desc {
+      font-size: 14px;
+      font-weight: 300;
+      color: #8ba4c7;
+      line-height: 1.5;
+    }
+    .fallback-flow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      padding: 14px 20px;
+      background: rgba(59,130,246,0.05);
+      border-radius: 10px;
+      border: 1px solid rgba(59,130,246,0.1);
+    }
+    .fallback-flow .ff-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8ba4c7;
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      letter-spacing: 1px;
+    }
+    .fallback-flow .ff-step {
+      font-size: 13px;
+      color: #ffffff;
+      padding: 4px 14px;
+      background: rgba(59,130,246,0.1);
+      border-radius: 6px;
+    }
+    .fallback-flow .ff-arrow {
+      color: #3b82f6;
+      font-size: 16px;
+    }
+    .llm-features {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .llm-feat {
+      font-size: 12px;
+      color: #8ba4c7;
+      padding: 6px 14px;
+      background: rgba(59,130,246,0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(59,130,246,0.08);
+    }
+
+    /* --- Scene 6: Closing --- */
+    .closing-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      gap: 16px;
+      text-align: center;
+    }
+    .closing-logo {
+      font-size: 72px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+    }
+    .closing-logo span { color: #3b82f6; }
+    .closing-tagline {
+      font-size: 20px;
+      font-weight: 300;
+      color: #8ba4c7;
+    }
+    .closing-cta {
+      font-family: "JetBrains Mono", "PingFang SC", monospace;
+      font-size: 14px;
+      color: rgba(59,130,246,0.6);
+      letter-spacing: 3px;
+      margin-top: 8px;
+    }
+    .closing-accent {
+      width: 60px;
+      height: 2px;
+      background: #3b82f6;
+      border-radius: 1px;
+    }
+
+    .flex-col { display: flex; flex-direction: column; }
+    .flex-1 { flex: 1; }
+    .mt-auto { margin-top: auto; }
+  </style>
+</head>
+<body>
+  <div
+    id="root"
+    data-composition-id="main"
+    data-start="0"
+    data-duration="60"
+    data-width="1920"
+    data-height="1080"
+  >
+    <!-- SCENE 1: HERO -->
+    <div id="scene1" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:700px;height:700px;background:rgba(59,130,246,0.08);top:200px;left:100px;"></div>
+      <div class="bg-glow" style="width:400px;height:400px;background:rgba(59,130,246,0.05);top:500px;right:300px;"></div>
+      <div class="bg-ghost" style="font-size:140px;top:60px;right:-20px;">TEST</div>
+      <div class="bg-ghost" style="font-size:100px;bottom:80px;left:60px;">AI</div>
+      <div class="bg-ghost" style="font-size:90px;top:400px;right:100px;">CODE</div>
+
+      <div class="scene-content">
+        <div class="hero-accent-line"></div>
+        <div class="flex-col flex-1" style="justify-content:center;max-width:800px;">
+          <div class="section-tag" id="s1-tag">INTELLIGENT TEST PLATFORM</div>
+          <div class="hero-divider"></div>
+          <div class="hero-logo" id="s1-logo">Test<span>Brain</span></div>
+          <div class="hero-tagline" id="s1-sub">基于大语言模型的智能测试平台</div>
+          <div class="hero-tagline" id="s1-sub2" style="font-size:18px;color:#6b8bb8;margin-top:2px;">
+            AI-Powered Test Case Generation · Review · Knowledge Management
+          </div>
+          <div class="hero-motto" id="s1-motto">打造高效、可扩展的 AI 测试助手</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENE 2: MULTI-AGENT -->
+    <div id="scene2" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:500px;height:500px;background:rgba(59,130,246,0.06);top:300px;right:100px;"></div>
+      <div class="bg-ghost" style="font-size:80px;top:50px;left:-30px;">AGENT</div>
+      <div class="bg-ghost" style="font-size:60px;bottom:60px;right:40px;">AI</div>
+
+      <div class="scene-content">
+        <div class="section-tag" id="s2-tag">CORE CAPABILITY</div>
+        <div class="section-title" id="s2-title">多 Agent 协同</div>
+        <div class="section-sub" id="s2-sub">针对不同测试场景提供专用智能体，覆盖测试全生命周期</div>
+
+        <div class="agent-grid" id="s2-grid">
+          <div class="agent-card" data-idx="0">
+            <div class="tag">TEST CASE</div>
+            <div class="name">测试用例生成</div>
+            <div class="desc">根据需求文档自动生成测试用例，支持同步/异步调用</div>
+          </div>
+          <div class="agent-card" data-idx="1">
+            <div class="tag">REVIEW</div>
+            <div class="name">测试用例评审</div>
+            <div class="desc">对生成的用例进行 AI 评审与打分，保证覆盖率</div>
+          </div>
+          <div class="agent-card" data-idx="2">
+            <div class="tag">PRD</div>
+            <div class="name">测试点 & 场景分析</div>
+            <div class="desc">解析 PRD 文档，提炼测试点与测试场景</div>
+          </div>
+          <div class="agent-card" data-idx="3">
+            <div class="tag">API</div>
+            <div class="name">接口 Case 生成</div>
+            <div class="desc">基于接口描述自动生成接口测试用例</div>
+          </div>
+          <div class="agent-card" data-idx="4">
+            <div class="tag">JAVA</div>
+            <div class="name">Java 源码分析</div>
+            <div class="desc">分析 Java 代码并梳理潜在测试点</div>
+          </div>
+          <div class="agent-card" data-idx="5">
+            <div class="tag">ANALYSIS</div>
+            <div class="name">需求分析</div>
+            <div class="desc">智能理解需求，辅助测试策略制定</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENE 3: KNOWLEDGE BASE -->
+    <div id="scene3" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:600px;height:600px;background:rgba(59,130,246,0.06);top:150px;right:200px;"></div>
+      <div class="bg-ghost" style="font-size:90px;top:30px;left:80px;">KNOWLEDGE</div>
+      <div class="bg-ghost" style="font-size:70px;bottom:40px;left:200px;">VECTOR</div>
+
+      <div class="scene-content">
+        <div class="section-tag" id="s3-tag">KNOWLEDGE ENGINE</div>
+        <div class="section-title" id="s3-title">知识库引擎</div>
+        <div class="section-sub" id="s3-sub">集成向量数据库与语义检索，为 AI 生成提供上下文支撑</div>
+
+        <div class="pipeline-flow" id="s3-pipeline">
+          <div class="pipeline-step" data-idx="0">
+            <div class="step-icon">📄</div>
+            <div class="step-title">文档解析</div>
+            <div class="step-desc">支持 PDF、Word、Markdown、TXT 等多格式</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" data-idx="1">
+            <div class="step-icon">🧠</div>
+            <div class="step-title">向量嵌入</div>
+            <div class="step-desc">BGEM3 Embedding 模型，高精度语义向量化</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" data-idx="2">
+            <div class="step-icon">🗄️</div>
+            <div class="step-title">Milvus 向量库</div>
+            <div class="step-desc">高性能向量检索，支持相似度匹配</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" data-idx="3">
+            <div class="step-icon">🔍</div>
+            <div class="step-title">上下文增强</div>
+            <div class="step-desc">检索 + 上下文注入，提升生成质量</div>
+          </div>
+        </div>
+
+        <div class="tech-stack" id="s3-tech">
+          <div class="tech-badge">Milvus 2.4.x</div>
+          <div class="tech-badge">BAAI/bge-m3</div>
+          <div class="tech-badge">sentence-transformers</div>
+          <div class="tech-badge">LangChain</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENE 4: DASHBOARD -->
+    <div id="scene4" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:450px;height:450px;background:rgba(59,130,246,0.06);top:400px;left:100px;"></div>
+      <div class="bg-ghost" style="font-size:80px;top:60px;right:40px;">DATA</div>
+      <div class="bg-ghost" style="font-size:60px;bottom:80px;left:100px;">METRICS</div>
+
+      <div class="scene-content">
+        <div class="section-tag" id="s4-tag">DASHBOARD</div>
+        <div class="section-title" id="s4-title">智能仪表盘</div>
+        <div class="section-sub" id="s4-sub">全方位测试数据概览，实时掌握测试进展</div>
+
+        <div class="stat-grid" id="s4-stats">
+          <div class="stat-card total">
+            <div class="stat-label">总测试用例数</div>
+            <div class="stat-number"><span class="countup" data-target="12860">0</span></div>
+            <div class="stat-bar"></div>
+          </div>
+          <div class="stat-card pending">
+            <div class="stat-label">待评审</div>
+            <div class="stat-number"><span class="countup" data-target="2340">0</span></div>
+            <div class="stat-bar"></div>
+          </div>
+          <div class="stat-card passed">
+            <div class="stat-label">评审通过</div>
+            <div class="stat-number"><span class="countup" data-target="8650">0</span></div>
+            <div class="stat-bar"></div>
+          </div>
+          <div class="stat-card rejected">
+            <div class="stat-label">评审未通过</div>
+            <div class="stat-number"><span class="countup" data-target="1870">0</span></div>
+            <div class="stat-bar"></div>
+          </div>
+        </div>
+
+        <div class="dashboard-modules" id="s4-modules">
+          <div class="module-pill">📋 测试用例管理</div>
+          <div class="module-pill">🔄 测试执行管理</div>
+          <div class="module-pill">📊 测试报告</div>
+          <div class="module-pill">⚙️ 系统归属管理</div>
+          <div class="module-pill">📥 报告导入</div>
+        </div>
+
+        <div class="hairline" style="margin-top:4px;"></div>
+      </div>
+    </div>
+
+    <!-- SCENE 5: LLM INTEGRATION -->
+    <div id="scene5" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:500px;height:500px;background:rgba(59,130,246,0.06);top:250px;left:300px;"></div>
+      <div class="bg-ghost" style="font-size:70px;bottom:60px;right:50px;">LLM</div>
+      <div class="bg-ghost" style="font-size:60px;top:50px;left:30px;">PROVIDER</div>
+
+      <div class="scene-content">
+        <div class="section-tag" id="s5-tag">LLM INTEGRATION</div>
+        <div class="section-title" id="s5-title">多模型接入 · 自动降级</div>
+        <div class="section-sub" id="s5-sub">支持多供应商，按 Agent 配置默认模型，Provider 自动容错</div>
+
+        <div class="provider-row" id="s5-providers">
+          <div class="provider-card" data-idx="0">
+            <div class="provider-name">DeepSeek</div>
+            <div class="provider-status">● 已接入</div>
+            <div class="provider-desc">默认首选 Provider，支持复杂测试场景生成</div>
+          </div>
+          <div class="provider-card" data-idx="1">
+            <div class="provider-name">Qwen (通义千问)</div>
+            <div class="provider-status">● 已接入</div>
+            <div class="provider-desc">备用 Provider，高可用保障</div>
+          </div>
+          <div class="provider-card" data-idx="2">
+            <div class="provider-name">LLM 服务工厂</div>
+            <div class="provider-status" style="color:#3b82f6;">● 可扩展</div>
+            <div class="provider-desc">模块化工厂模式，轻松接入更多模型</div>
+          </div>
+        </div>
+
+        <div class="fallback-flow" id="s5-fallback">
+          <span class="ff-label">降级容错链</span>
+          <span class="ff-step">首选 Provider</span>
+          <span class="ff-arrow">→</span>
+          <span class="ff-step">自动检测失败</span>
+          <span class="ff-arrow">→</span>
+          <span class="ff-step">按优先级降级</span>
+          <span class="ff-arrow">→</span>
+          <span class="ff-step">备用 Provider</span>
+          <span class="ff-step" style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.2);color:#22c55e;">✓ 高可用</span>
+        </div>
+
+        <div class="llm-features" id="s5-feats">
+          <div class="llm-feat">同步 invoke / 异步 ainvoke</div>
+          <div class="llm-feat">LLMServiceFactory 动态创建</div>
+          <div class="llm-feat">FallbackLLMWrapper 自动降级</div>
+          <div class="llm-feat">Agent 级默认配置</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENE 6: CLOSING -->
+    <div id="scene6" class="scene">
+      <div class="bg-grid"></div>
+      <div class="bg-glow" style="width:600px;height:600px;background:rgba(59,130,246,0.07);top:240px;left:660px;"></div>
+      <div class="bg-ghost" style="font-size:120px;top:100px;right:80px;">BRAIN</div>
+      <div class="bg-ghost" style="font-size:100px;bottom:100px;left:60px;">TEST</div>
+
+      <div class="closing-content">
+        <div class="closing-accent"></div>
+        <div class="closing-logo">Test<span>Brain</span></div>
+        <div class="closing-tagline" id="s6-tagline">打造高效、可扩展的 AI 测试助手</div>
+        <div class="closing-cta" id="s6-url">AI-POWERED TEST PLATFORM</div>
+        <div class="closing-accent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    var DURATION = 60;
+
+    function pushSlide(tl, oldScene, newScene, T) {
+      tl.to(oldScene, { x: -1920, duration: 0.45, ease: "power3.inOut" }, T);
+      tl.set(newScene, { opacity: 1 }, T);
+      tl.fromTo(newScene, { x: 1920 }, { x: 0, duration: 0.45, ease: "power3.inOut" }, T);
+    }
+
+    function countUp(el, target, startTime) {
+      if (!el) return;
+      var o = { val: 0 };
+      tl.to(o, {
+        val: target,
+        duration: 1.0,
+        ease: "power2.out",
+        onUpdate: function () { el.textContent = Math.round(o.val).toLocaleString(); }
+      }, startTime);
+    }
+
+    // === SCENE 1: Hero (0-10s) ===
+    tl.from("#s1-tag", { opacity: 0, y: 20, duration: 0.5, ease: "power2.out" }, 0.3);
+    tl.from(".hero-divider", { scaleX: 0, transformOrigin: "left center", duration: 0.5, ease: "power3.out" }, 0.6);
+    tl.from("#s1-logo", { opacity: 0, y: 30, duration: 0.6, ease: "expo.out" }, 0.8);
+    tl.from("#s1-sub", { opacity: 0, y: 20, duration: 0.5, ease: "power2.out" }, 1.2);
+    tl.from("#s1-sub2", { opacity: 0, y: 15, duration: 0.5, ease: "power2.out" }, 1.6);
+    tl.from("#s1-motto", { opacity: 0, y: 10, duration: 0.4, ease: "power2.out" }, 2.0);
+    tl.from(".hero-accent-line", { scaleY: 0, transformOrigin: "top center", duration: 0.7, ease: "power3.out" }, 0.5);
+    // Finite ambient ghost drift (cycle every 5s, 60s total = 12 cycles)
+    tl.to(".bg-ghost", { x: 20, duration: 4, ease: "sine.inOut", repeat: 11, yoyo: true }, 0);
+
+    // === Scene 1 → 2 at 9.5s ===
+    pushSlide(tl, "#scene1", "#scene2", 9.5);
+
+    // === SCENE 2: Multi-Agent (10-22s) ===
+    tl.from("#s2-tag", { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" }, 10.0);
+    tl.from("#s2-title", { opacity: 0, y: 25, duration: 0.5, ease: "expo.out" }, 10.3);
+    tl.from("#s2-sub", { opacity: 0, y: 15, duration: 0.4, ease: "power2.out" }, 10.6);
+    tl.from("#s2-grid .agent-card", {
+      opacity: 0, y: 30, scale: 0.95, duration: 0.4, ease: "power2.out", stagger: 0.07
+    }, 10.8);
+
+    // === Scene 2 → 3 at 21.5s ===
+    pushSlide(tl, "#scene2", "#scene3", 21.5);
+
+    // === SCENE 3: Knowledge Base (22-34s) ===
+    tl.from("#s3-tag", { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" }, 22.0);
+    tl.from("#s3-title", { opacity: 0, y: 25, duration: 0.5, ease: "expo.out" }, 22.3);
+    tl.from("#s3-sub", { opacity: 0, y: 15, duration: 0.4, ease: "power2.out" }, 22.6);
+    tl.from("#s3-pipeline .pipeline-step", {
+      opacity: 0, y: 25, scale: 0.95, duration: 0.4, ease: "power2.out", stagger: 0.1
+    }, 22.9);
+    tl.from("#s3-pipeline .pipeline-arrow", {
+      opacity: 0, scale: 0.5, duration: 0.3, ease: "back.out(1.5)", stagger: 0.1
+    }, 23.0);
+    tl.from("#s3-tech .tech-badge", {
+      opacity: 0, y: 10, duration: 0.3, ease: "power2.out", stagger: 0.06
+    }, 24.5);
+
+    // === Scene 3 → 4 at 33.5s ===
+    pushSlide(tl, "#scene3", "#scene4", 33.5);
+
+    // === SCENE 4: Dashboard (34-44s) ===
+    tl.from("#s4-tag", { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" }, 34.0);
+    tl.from("#s4-title", { opacity: 0, y: 25, duration: 0.5, ease: "expo.out" }, 34.3);
+    tl.from("#s4-sub", { opacity: 0, y: 15, duration: 0.4, ease: "power2.out" }, 34.6);
+    tl.from("#s4-stats .stat-card", {
+      opacity: 0, y: 25, scale: 0.95, duration: 0.4, ease: "power2.out", stagger: 0.08
+    }, 34.9);
+
+    // Count up
+    countUp(document.querySelector("#s4-stats .total .countup"), 12860, 35.6);
+    countUp(document.querySelector("#s4-stats .pending .countup"), 2340, 35.6);
+    countUp(document.querySelector("#s4-stats .passed .countup"), 8650, 35.8);
+    countUp(document.querySelector("#s4-stats .rejected .countup"), 1870, 35.8);
+
+    // Stat bars
+    tl.to("#s4-stats .total .stat-bar", { width: "100%", duration: 0.8, ease: "power2.out" }, 35.3);
+    tl.to("#s4-stats .pending .stat-bar", { width: "18%", duration: 0.8, ease: "power2.out" }, 35.4);
+    tl.to("#s4-stats .passed .stat-bar", { width: "67%", duration: 0.8, ease: "power2.out" }, 35.5);
+    tl.to("#s4-stats .rejected .stat-bar", { width: "15%", duration: 0.8, ease: "power2.out" }, 35.6);
+
+    tl.from("#s4-modules .module-pill", {
+      opacity: 0, y: 10, duration: 0.3, ease: "power2.out", stagger: 0.06
+    }, 36.5);
+
+    // === Scene 4 → 5 at 43.5s ===
+    pushSlide(tl, "#scene4", "#scene5", 43.5);
+
+    // === SCENE 5: LLM Integration (44-54s) ===
+    tl.from("#s5-tag", { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" }, 44.0);
+    tl.from("#s5-title", { opacity: 0, y: 25, duration: 0.5, ease: "expo.out" }, 44.3);
+    tl.from("#s5-sub", { opacity: 0, y: 15, duration: 0.4, ease: "power2.out" }, 44.6);
+    tl.from("#s5-providers .provider-card", {
+      opacity: 0, y: 25, scale: 0.95, duration: 0.4, ease: "power2.out", stagger: 0.1
+    }, 44.9);
+    tl.from("#s5-fallback", { opacity: 0, y: 15, duration: 0.4, ease: "power2.out" }, 46.2);
+    tl.from("#s5-fallback .ff-step, #s5-fallback .ff-arrow, #s5-fallback .ff-label", {
+      opacity: 0, y: 8, duration: 0.25, ease: "power2.out", stagger: 0.06
+    }, 46.4);
+    tl.from("#s5-feats .llm-feat", {
+      opacity: 0, y: 10, duration: 0.3, ease: "power2.out", stagger: 0.06
+    }, 47.0);
+
+    // === Scene 5 → 6 at 53.5s ===
+    pushSlide(tl, "#scene5", "#scene6", 53.5);
+
+    // === SCENE 6: Closing (54-60s) ===
+    tl.from(".closing-accent", {
+      scaleX: 0, transformOrigin: "center center", duration: 0.5, ease: "power3.out", stagger: 0.1
+    }, 54.3);
+    tl.from(".closing-logo", { opacity: 0, y: 20, duration: 0.6, ease: "expo.out" }, 54.6);
+    tl.from("#s6-tagline", { opacity: 0, y: 15, duration: 0.5, ease: "power2.out" }, 55.2);
+    tl.from("#s6-url", { opacity: 0, y: 10, duration: 0.4, ease: "power2.out" }, 55.6);
+
+    // Fade out to black + visibility kill
+    tl.to("#scene6", { opacity: 0, duration: 0.6, ease: "power2.inOut" }, 59.2);
+    tl.set("#scene6", { visibility: "hidden" }, 59.8);
+
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>

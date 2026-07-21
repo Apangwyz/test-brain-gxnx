@@ -6,6 +6,7 @@ from . import version_views
 from . import report_views
 from . import test_execution_views
 from . import progress_views
+from . import report_import_views
 from .views_sse import stream_logs
 
 urlpatterns = [
@@ -15,13 +16,14 @@ urlpatterns = [
     path('knowledge/', knowledge_views.knowledge_view, name='knowledge'),
     
     #知识库文件上传页面
-    path('upload/', knowledge_views.upload_single_file, name='upload_single_file'),
 
     path('api/add-knowledge/', knowledge_views.add_knowledge, name='add_knowledge'),
     path('api/knowledge-list/', knowledge_views.knowledge_list, name='knowledge_list'),
+    path('api/knowledge/upload/', knowledge_views.upload_single_file, name='knowledge_upload_api'),
 
     path('api/knowledge/retrieve/', knowledge_views.retrieve_knowledge, name='retrieve_knowledge'),
     path('api/knowledge/list-select/', knowledge_views.knowledge_list_select, name='knowledge_list_select'),
+    path('api/knowledge/<int:item_id>/delete/', knowledge_views.delete_knowledge, name='delete_knowledge'),
     path('api/search-knowledge/', knowledge_views.search_knowledge, name='search_knowledge'),   
     path('api/stream-logs/', stream_logs, name='stream_logs'),
     
@@ -69,6 +71,10 @@ urlpatterns = [
     # 报告页面
     path('reports/', report_views.report_list_view, name='report_list'),
     path('reports/<int:report_id>/', report_views.report_detail_view, name='report_detail'),
+    
+    # 报告导入
+    path('reports/import/', report_import_views.import_report_page, name='report_import'),
+    path('api/reports/import/', report_import_views.import_report_api, name='import_report_api'),
     
     # 通用进度管理API (由 common_progress.js 调用)
     path('api/progress/', progress_views.get_progress_api, name='generic_progress_api'),

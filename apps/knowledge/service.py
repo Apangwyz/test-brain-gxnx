@@ -4,6 +4,9 @@ from ..core.models import KnowledgeBase
 # from typing import List, Dict, Any
 from apps.utils.logger_manager import get_logger
 from django.apps import apps
+from datetime import datetime
+import hashlib
+import json
 
 
 class KnowledgeService:
@@ -24,14 +27,24 @@ class KnowledgeService:
         
     def add_knowledge(self, title: str, content: str) -> int:
         """添加知识到知识库"""
+        # 检查向量存储和嵌入器是否可用
+        if self.vector_store is None:
+            raise RuntimeError("知识库向量存储（Milvus）未初始化，请检查 ENABLE_MILVUS 配置或 Milvus 服务状态")
+        if self.embedder is None:
+            raise RuntimeError("嵌入模型未初始化，请检查嵌入服务配置")
+        
         # 获取嵌入向量
         embedding = self.embedder.get_embeddings(content)[0]
         
         # 添加到向量数据库
-        self.vector_store.add_documents([{
-            "title": title,
+        self.vector_store.add_data([{
             "content": content,
-            "embedding": embedding
+            "embedding": embedding,
+            "metadata": json.dumps({"title": title}, ensure_ascii=False),
+            "source": f"requirement_adoption/{title}",
+            "doc_type": "md",
+            "chunk_id": f"{hashlib.md5(title.encode()).hexdigest()[:10]}_0000",
+            "upload_time": datetime.now().isoformat()
         }])
         
         # 保存到MySQL

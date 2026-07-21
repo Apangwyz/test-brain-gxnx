@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载已采纳需求文档
     loadAdoptedDocs();
     
+    // 恢复已选知识库文档标签（页面刷新后从 hidden input 还原）
+    restoreSelectedKbTags();
+    
     console.log('[generate.js] All init functions called');
 });
 
@@ -191,7 +194,6 @@ function openKnowledgeBrowser() {
     console.log('[generate.js] openKnowledgeBrowser called');
     if (kbBrowserModal) {
         kbBrowserModal.modal('show');
-        loadKnowledgeListForBrowser();
         return;
     }
 
@@ -336,15 +338,27 @@ function openKnowledgeBrowser() {
 
     // 确认选择
     document.getElementById('kbConfirmBtn').addEventListener('click', function() {
-        var checkedBoxes = document.querySelectorAll('.kb-item-checkbox:checked');
-        var ids = [];
-        for (var i = 0; i < checkedBoxes.length; i++) {
-            ids.push(checkedBoxes[i].value);
+        try {
+            var checkedBoxes = document.querySelectorAll('.kb-item-checkbox:checked');
+            var ids = [];
+            var names = [];
+            for (var i = 0; i < checkedBoxes.length; i++) {
+                ids.push(checkedBoxes[i].value);
+                var parentItem = checkedBoxes[i].closest('.list-group-item');
+                var titleEl = parentItem ? parentItem.querySelector('.font-weight-bold') : null;
+                names.push(titleEl ? titleEl.textContent.trim() : '文档 ' + checkedBoxes[i].value);
+            }
+            var idsStr = ids.join(',');
+            document.getElementById('selectedKbIds').value = idsStr;
+            window.__selectedKbDocs = [];
+            for (var i = 0; i < ids.length; i++) {
+                window.__selectedKbDocs.push({ id: ids[i], title: names[i] });
+            }
+            updateKnowledgeRefSection(idsStr);
+            kbBrowserModal.modal('hide');
+        } catch(e) {
+            console.error('[generate.js] Confirm handler error:', e);
         }
-        var idsStr = ids.join(',');
-        document.getElementById('selectedKbIds').value = idsStr;
-        updateKnowledgeRefSection(idsStr);
-        kbBrowserModal.modal('hide');
     });
 
     kbBrowserModal.on('hidden.bs.modal', function() {
@@ -360,13 +374,67 @@ function updateKnowledgeRefSection(idsStr) {
     var container = document.getElementById('auto-retrieve-results');
     if (!container) return;
     if (ids.length === 0) {
-        container.innerHTML = '<small class=\"text-muted\">提交后将自动检索知识库中的相关文档，增强生成准确性</small>';
-    } else {
-        container.innerHTML = '<small class=\"text-success\">✅ 已手动选择 <strong>' + ids.length + '</strong> 篇知识库文档，将作为生成参考</small>';
+        container.innerHTML = '<small class="text-muted">提交后将自动检索知识库中的相关文档，增强生成准确性</small>';
+        window.__selectedKbDocs = [];
+        return;
     }
+    var docs = window.__selectedKbDocs || [];
+    var titleHtml = '';
+    docs.forEach(function(d) {
+        titleHtml += '<span style="display:inline-block;background:#e8f4fd;border:1px solid #b3d7ff;border-radius:4px;padding:3px 10px;margin:3px 4px 3px 0;font-size:13px;">'
+            + '📄 ' + escapeHtml(d.title)
+            + ' <span style="cursor:pointer;margin-left:4px;font-weight:bold;color:#999;" onclick="removeSelectedKb(' + d.id + ')">&times;</span>'
+            + '</span>';
+    });
+    container.innerHTML = '<div style="margin-bottom:6px;"><small class="text-success">✅ 已选择 <strong>' + ids.length + '</strong> 篇：</small></div>'
+        + '<div style="display:flex;flex-wrap:wrap;">' + titleHtml + '</div>';
 }
 
 // 显示测试用例
+// 渲染已选知识库文档的标签
+function renderSelectedKbTags() {
+    var idsStr = document.getElementById('selectedKbIds') ? document.getElementById('selectedKbIds').value : '';
+    var ids = idsStr.split(',').filter(Boolean);
+    var tagArea = document.getElementById('selectedKbTags');
+    var container = document.getElementById('auto-retrieve-results');
+    if (!container) return;
+
+    // 清理旧标签区域
+    if (tagArea) tagArea.remove();
+
+    if (ids.length === 0) return;
+
+    tagArea = document.createElement('div');
+    tagArea.id = 'selectedKbTags';
+    tagArea.className = 'd-flex flex-wrap';
+    tagArea.style.cssText = 'margin-top: 8px; gap: 6px;';
+    container.parentNode.insertBefore(tagArea, container.nextSibling);
+
+    var docs = window.__selectedKbDocs || [];
+    var tagHtml = '';
+    docs.forEach(function(doc) {
+        tagHtml += '<span class="badge badge-info" style="font-size: 13px; padding: 6px 12px; margin: 2px; display: inline-flex; align-items: center;">'
+            + '📄 ' + escapeHtml(doc.title)
+            + ' <span class="kb-remove-btn" data-id="' + doc.id + '" style="cursor:pointer;margin-left:6px;font-weight:bold;" onclick="removeSelectedKb(' + doc.id + ')">&times;</span>'
+            + '</span>';
+    });
+    tagArea.innerHTML = tagHtml;
+}
+
+// 移除单个选中的知识库文档
+function removeSelectedKb(id) {
+    var hiddenInput = document.getElementById('selectedKbIds');
+    if (!hiddenInput) return;
+    var ids = hiddenInput.value.split(',').filter(Boolean);
+    var newIds = ids.filter(function(v) { return v !== String(id); });
+    hiddenInput.value = newIds.join(',');
+    // 同步更新 __selectedKbDocs
+    if (window.__selectedKbDocs) {
+        window.__selectedKbDocs = window.__selectedKbDocs.filter(function(d) { return String(d.id) !== String(id); });
+    }
+    updateKnowledgeRefSection(newIds.join(','));
+}
+
 function displayTestCases(testCases) {
     let resultContainer = document.getElementById('result-container');
     if (!resultContainer) {
@@ -668,6 +736,40 @@ function fillSelectedDocs() {
 }
 
 // ===== HTML 转义 =====
+// 页面加载时从 hidden input 还原已选知识库文档标签
+function restoreSelectedKbTags() {
+    var hiddenInput = document.getElementById('selectedKbIds');
+    if (!hiddenInput || !hiddenInput.value) return;
+    var ids = hiddenInput.value.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    // 先显示数量
+    var container = document.getElementById('auto-retrieve-results');
+    if (container) {
+        container.innerHTML = '<small class="text-success">✅ 已选择 <strong>' + ids.length + '</strong> 篇知识库文档（加载标题中...）</small>';
+    }
+    // 异步加载标题
+    window.__selectedKbDocs = [];
+    fetch('/api/knowledge/list-select/?page=1')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var allItems = data.items || [];
+            var found = [];
+            allItems.forEach(function(item) {
+                if (ids.indexOf(String(item.id)) !== -1) {
+                    found.push({ id: item.id, title: item.title });
+                }
+            });
+            window.__selectedKbDocs = found;
+            updateKnowledgeRefSection(ids.join(','));
+        })
+        .catch(function() {
+            // 降级：只显示数量
+            if (container) {
+                container.innerHTML = '<small class="text-success">✅ 已选择 <strong>' + ids.length + '</strong> 篇知识库文档</small>';
+            }
+        });
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
